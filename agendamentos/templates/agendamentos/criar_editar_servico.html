@@ -1,0 +1,30 @@
+<!-- agendamentos/templates/agendamentos/criar_editar_servico.html -->
+{% extends 'agendamentos/base.html' %}
+
+{% block title %}{{ titulo_pagina }}{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">{{ titulo_pagina }}</h1>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        {% for field in form %}
+            <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                    <div class="form-text">{{ field.help_text }}</div>
+                {% endif %}
+                {% for error in field.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary btn-lg">Salvar</button>
+            <a href="{% url 'agendamentos:gerir_servicos' %}" class="btn btn-secondary btn-lg">Cancelar</a>
+        </div>
+    </form>
+{% endblock %}

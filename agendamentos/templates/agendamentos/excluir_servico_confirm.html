@@ -1,0 +1,20 @@
+<!-- agendamentos/templates/agendamentos/excluir_servico_confirm.html -->
+{% extends 'agendamentos/base.html' %}
+
+{% block title %}Confirmar Exclusão de Serviço{% endblock %}
+
+{% block content %}
+    <div class="text-center">
+        <h1 class="mb-3">Confirmar Exclusão</h1>
+        <p class="fs-5">Você tem certeza que deseja excluir o serviço "<strong>{{ servico.nome }}</strong>"?</p>
+        <div class="alert alert-danger mt-3">
+            <strong>Atenção!</strong> Esta ação não pode ser desfeita. Todos os agendamentos associados a este serviço também podem ser afetados.
+        </div>
+
+        <form method="post" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-lg mt-3">Sim, Excluir</button>
+        </form>
+        <a href="{% url 'agendamentos:gerir_servicos' %}" class="btn btn-secondary btn-lg mt-3">Cancelar</a>
+    </div>
+{% endblock %}

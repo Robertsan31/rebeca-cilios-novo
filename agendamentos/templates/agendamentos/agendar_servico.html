@@ -1,0 +1,62 @@
+<!-- agendamentos/templates/agendamentos/agendar_servico.html -->
+{% extends 'agendamentos/base.html' %}
+
+{% block title %}Agendar {{ servico.nome }}{% endblock %}
+
+{% block content %}
+    <div class="text-center mb-5">
+        <h1 class="display-5">Agendar: {{ servico.nome }}</h1>
+        <p class="lead text-muted">Selecione uma data e um horário abaixo.</p>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Calendário</h5>
+                    <!-- O elemento abaixo será substituído pelo calendário -->
+                    <div id="calendario" class="p-3"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Horários Disponíveis para {{ dia_selecionado|date:"d/m/Y" }}</h5>
+                    <div class="d-flex flex-wrap justify-content-center p-3">
+                        {% for horario in horarios_disponiveis %}
+                            <a href="{% url 'agendamentos:confirmar_agendamento' servico_id=servico.id year=dia_selecionado.year month=dia_selecionado.month day=dia_selecionado.day hour=horario.hour minute=horario.minute %}" class="btn btn-outline-primary m-1" style="width: 100px;">
+                                {{ horario|date:"H:i" }}
+                            </a>
+                        {% empty %}
+                            <p class="text-muted">Não há horários disponíveis para este dia.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{% url 'agendamentos:lista_servicos' %}" class="btn btn-secondary">&larr; Voltar para a lista de serviços</a>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        flatpickr("#calendario", {
+            inline: true, // Mostra o calendário diretamente na página
+            minDate: "today", // Não permite selecionar datas passadas
+            dateFormat: "Y-m-d",
+            defaultDate: "{{ dia_selecionado|date:'Y-m-d' }}",
+            onChange: function(selectedDates, dateStr, instance) {
+                // Quando uma data é selecionada, recarrega a página com a nova data como parâmetro na URL
+                const baseUrl = "{% url 'agendamentos:agendar_servico' servico.id %}";
+                window.location.href = baseUrl + "?data=" + dateStr;
+            }
+        });
+    });
+</script>
+{% endblock %}

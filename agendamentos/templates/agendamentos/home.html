@@ -1,0 +1,137 @@
+{% extends "agendamentos/base_publica.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    .hero-section {
+        position: relative;
+        overflow: hidden;
+    }
+    .eyelash-art {
+        position: absolute;
+        top: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 250px;
+        height: auto;
+        opacity: 0.07;
+        z-index: 0;
+        color: #5d4a7b;
+    }
+    .content-wrapper {
+        position: relative;
+        z-index: 1;
+    }
+    .services-showcase-section {
+        background-color: #fff;
+        border-top: 1px solid #eef0f4;
+        border-bottom: 1px solid #eef0f4;
+    }
+    .service-card {
+        border-radius: 15px;
+        border: none;
+        overflow: hidden;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .service-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 1rem 2rem rgba(0,0,0,0.1) !important;
+    }
+    .service-card img {
+        height: 250px;
+        object-fit: cover;
+    }
+    .social-icons a {
+        transition: transform 0.2s;
+    }
+    .social-icons a:hover {
+        transform: scale(1.15);
+    }
+</style>
+
+<div class="container text-center py-5 hero-section">
+    
+    <svg class="eyelash-art" viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M 2,25 C 20,-5 80,-5 98,25" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M 12,24 Q 18,14 24,24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <path d="M 26,23 Q 32,13 38,23" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <path d="M 40,22 Q 46,12 52,22" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <path d="M 54,22 Q 60,12 66,22" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <path d="M 68,23 Q 74,13 80,23" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <path d="M 82,24 Q 88,14 94,24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    </svg>
+
+    <div class="row justify-content-center content-wrapper">
+        <div class="col-lg-8">
+            <h1 class="display-4" style="color: #5d4a7b; font-weight: 300;">Bem-vinda à BellCilios</h1>
+            <p class="lead text-muted mt-3">
+                O seu espaço exclusivo para realçar a beleza do seu olhar.
+            </p>
+            <hr class="my-5" style="width: 50%; margin-left: auto; margin-right: auto;">
+            <p>Explore os nossos tratamentos e descubra o serviço perfeito para si.</p>
+            <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
+                <a href="{% url 'lista_servicos' %}" class="btn btn-lg text-white" style="background-color: #a389cc; border-radius: 8px;">Ver Nossos Serviços</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Secção de Serviços em Destaque (COM IMAGENS ATUALIZADAS) -->
+<div class="py-5 services-showcase-section">
+    <div class="container">
+        <div class="row g-4">
+            <!-- Destaque 1: Extensão de Cílios -->
+            <div class="col-lg-4 col-md-6">
+                <div class="card h-100 shadow-sm service-card">
+                    <img src="https://staleksbrasil.com.br/wp-content/uploads/2023/02/fio-a-fio.png" class="card-img-top" alt="[Imagem de uma profissional a aplicar extensões de cílios fio a fio]">
+                    <div class="card-body">
+                        <h5 class="card-title" style="color: #5d4a7b;">Extensão de Cílios</h5>
+                        <p class="card-text text-muted">A nossa especialidade. Utilizamos as técnicas mais modernas para garantir um resultado natural, duradouro e saudável para os seus cílios.</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Destaque 2: Design de Sobrancelhas -->
+            <div class="col-lg-4 col-md-6">
+                <div class="card h-100 shadow-sm service-card">
+                    <img src="https://images.tcdn.com.br/img/img_prod/850422/noticia_42519393661cc539a49206.jpg" class="card-img-top" alt="[Imagem de antes e depois de um design de sobrancelha]">
+                    <div class="card-body">
+                        <h5 class="card-title" style="color: #5d4a7b;">Design de Sobrancelhas</h5>
+                        <p class="card-text text-muted">Cada rosto é único. Criamos um design personalizado que harmoniza com os seus traços e realça a sua beleza natural.</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Destaque 3: Cursos Profissionais -->
+            <div class="col-lg-4 col-md-12">
+                <div class="card h-100 shadow-sm service-card">
+                    <img src="https://www.diariodeprofissoes.com.br/wp-content/uploads/2025/06/extensao-de-cilios-.jpg" class="card-img-top" alt="[Imagem de uma profissional da beleza a ministrar um curso]">
+                    <div class="card-body">
+                        <h5 class="card-title" style="color: #5d4a7b;">Cursos Profissionais</h5>
+                        <p class="card-text text-muted">Deseja entrar no mundo da beleza? Oferecemos cursos completos para formar novas profissionais de sucesso. Fale connosco para saber mais!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Secção de Redes Sociais Atualizada -->
+<div class="container text-center py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <h5 style="color: #5d4a7b; font-weight: 300;">Acompanhe o nosso trabalho e fale connosco!</h5>
+            <div class="mt-3 social-icons">
+                <!-- Substitua o '#' pelos links reais das redes sociais -->
+                <a href="#" class="fs-2 text-decoration-none mx-2" style="color: #a389cc;" title="Instagram">
+                    <i class="bi bi-instagram"></i>
+                </a>
+                <a href="#" class="fs-2 text-decoration-none mx-2" style="color: #a389cc;" title="TikTok">
+                    <i class="bi bi-tiktok"></i>
+                </a>
+                <a href="#" class="fs-2 text-decoration-none mx-2" style="color: #a389cc;" title="WhatsApp">
+                    <i class="bi bi-whatsapp"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

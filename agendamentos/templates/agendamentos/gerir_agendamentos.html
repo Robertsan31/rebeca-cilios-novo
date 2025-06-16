@@ -1,0 +1,90 @@
+<!-- agendamentos/templates/agendamentos/gerir_agendamentos.html -->
+{% extends 'agendamentos/base.html' %}
+{% load tz %}
+
+{% block title %}Gerir Agendamentos{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Agenda do Dia: {{ dia_selecionado|date:"d/m/Y" }}</h1>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title text-center">Selecione uma Data</h5>
+                    <div id="calendario-admin" class="p-2"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for agendamento in agendamentos %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
+                                <div class="me-3 mb-2">
+                                    <h5 class="mb-1">{{ agendamento.data_hora|localtime|date:"H:i" }} - {{ agendamento.servico.nome }}</h5>
+                                    <p class="mb-1"><strong>Cliente:</strong> {{ agendamento.cliente.nome }} ({{ agendamento.cliente.telefone }})</p>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge 
+                                        {% if agendamento.status == 'Confirmado' %} bg-success
+                                        {% elif agendamento.status == 'Pendente' %} bg-warning text-dark
+                                        {% else %} bg-danger
+                                        {% endif %} me-2">
+                                        {{ agendamento.status }}
+                                    </span>
+                                    
+                                    {% if agendamento.status == 'Pendente' %}
+                                    <form action="{% url 'agendamentos:atualizar_status_agendamento' agendamento.id %}" method="POST" class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="status" value="Confirmado">
+                                        <button type="submit" class="btn btn-success btn-sm">Confirmar</button>
+                                    </form>
+                                    {% endif %}
+
+                                    {% if agendamento.status != 'Cancelado' %}
+                                    <form action="{% url 'agendamentos:atualizar_status_agendamento' agendamento.id %}" method="POST" class="d-inline ms-1">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="status" value="Cancelado">
+                                        <button type="submit" class="btn btn-danger btn-sm">Cancelar</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </li>
+                        {% empty %}
+                            <li class="list-group-item text-center">Nenhum agendamento para este dia.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        flatpickr("#calendario-admin", {
+            inline: true,
+            dateFormat: "Y-m-d",
+            defaultDate: "{{ dia_selecionado|date:'Y-m-d' }}",
+            onChange: function(selectedDates, dateStr, instance) {
+                const baseUrl = "{% url 'agendamentos:gerir_agendamentos' %}";
+                window.location.href = baseUrl + "?data=" + dateStr;
+            }
+        });
+    });
+</script>
+{% endblock %}

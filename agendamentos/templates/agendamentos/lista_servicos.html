@@ -1,0 +1,37 @@
+{% extends "agendamentos/base_publica.html" %}
+
+{% block content %}
+<div class="container mt-4 py-5">
+    <div class="text-center mb-5">
+        <h1 class="display-5" style="color: #5d4a7b; font-weight: 300;">Nossos Serviços</h1>
+        <p class="lead text-muted">Conheça os tratamentos que oferecemos para realçar sua beleza.</p>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for servico in servicos %}
+        <div class="col">
+            <div class="card h-100 shadow-sm" style="border-radius: 15px; border: none;">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title" style="color: #a389cc;">{{ servico.nome }}</h5>
+                    <p class="card-text text-muted flex-grow-1">{{ servico.descricao|default:"Descrição não disponível." }}</p>
+                    <div class="mt-3">
+                        <p class="mb-1"><strong>Duração:</strong> {{ servico.duracao }} minutos</p>
+                        <p class="mb-2"><strong>Preço:</strong> R$ {{ servico.preco|floatformat:2 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <p class="text-center text-muted">Nenhum serviço cadastrado no momento.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="text-center mt-5 p-4 rounded" style="background-color: #f8f9fa;">
+        <p class="h5" style="color: #5d4a7b;">Gostou dos nossos serviços?</p>
+        <p class="text-muted">Agendamentos são realizados diretamente pela nossa profissional, Rebeca, para garantir um atendimento exclusivo.</p>
+    </div>
+
+</div>
+{% endblock %}
