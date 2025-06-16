@@ -14,7 +14,7 @@ entrypoint: gunicorn -b :$PORT agendamento_system.wsgi:application --workers 2
 env_variables:
   # --- Chaves de Segurança do Django e SendGrid ---
   SECRET_KEY: 'xfqcidyehecnvpw'
-  SENDGRID_API_KEY: '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'
+  SENDGRID_API_KEY: ''
   
   # Em produção, o DEBUG deve ser sempre False por segurança.
   DEBUG: 'False'
