@@ -63,7 +63,7 @@ if IS_PRODUCTION:
     # Configuração de hosts permitidos mais segura
     # Ele pega o ID do projeto do ambiente e constrói a URL automaticamente
     project_id = os.environ.get('GCP_PROJECT_ID')
-    LLOWED_HOSTS = [f'{project_id}.rj.r.appspot.com', f'{project_id}.uc.r.appspot.com']
+    ALLOWED_HOSTS = [f'{project_id}.rj.r.appspot.com', f'{project_id}.uc.r.appspot.com']
     
     # Conexão para o Google Cloud SQL
     DATABASES = {
