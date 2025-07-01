@@ -19,11 +19,9 @@ from django.conf import settings
 # --- Views Públicas ---
 
 def home(request):
-    """ A nova página de fachada do site. """
     return render(request, 'agendamentos/home.html')
 
 def lista_servicos(request):
-    """ A 'vitrine' de serviços, agora sem a necessidade de login. """
     servicos = Servico.objects.all().order_by('nome')
     context = {'servicos': servicos}
     return render(request, 'agendamentos/lista_servicos.html', context)
@@ -32,7 +30,6 @@ def lista_servicos(request):
 # --- Funções Auxiliares e API ---
 
 class DecimalEncoder(json.JSONEncoder):
-    """ Encoder JSON customizado para lidar com o tipo Decimal do Django. """
     def default(self, o):
         if isinstance(o, Decimal):
             return str(o)
@@ -40,16 +37,16 @@ class DecimalEncoder(json.JSONEncoder):
 
 @login_required
 def api_agendamentos(request):
-    """ Fornece os dados de agendamentos em formato JSON para o FullCalendar. """
     agendamentos = Agendamento.objects.select_related('cliente', 'servico').all()
     eventos = []
     color_map = { "Confirmado": "#a389cc", "Cancelado": "#a0a0a0", "Realizado": "#5cb85c", }
     for agendamento in agendamentos:
         cor_evento = color_map.get(agendamento.status, "#5bc0de")
+        duracao_padrao_minutos = 60 
         eventos.append({
             'id': agendamento.id, 'title': f'{agendamento.cliente.nome}',
             'start': agendamento.data_hora.isoformat(),
-            'end': (agendamento.data_hora + timedelta(minutes=agendamento.servico.duracao)).isoformat(),
+            'end': (agendamento.data_hora + timedelta(minutes=duracao_padrao_minutos)).isoformat(), 
             'color': cor_evento,
             'extendedProps': {
                 'servico_nome': agendamento.servico.nome, 'cliente_nome': agendamento.cliente.nome,
@@ -61,7 +58,6 @@ def api_agendamentos(request):
 
 @login_required
 def api_notificacao_proximo_agendamento(request):
-    """ Verifica e retorna o próximo agendamento se estiver para começar. """
     timezone = pytz.timezone(settings.TIME_ZONE)
     agora = datetime.now(timezone)
     limite = agora + timedelta(minutes=15)
@@ -79,12 +75,9 @@ def api_notificacao_proximo_agendamento(request):
 
 @login_required
 def painel(request):
-    """ Renderiza o painel principal com o calendário e passa a lista de serviços. """
-    servicos = Servico.objects.all().values('id', 'nome', 'preco', 'duracao')
+    servicos = Servico.objects.all().values('id', 'nome', 'preco')
     servicos_json = json.dumps(list(servicos), cls=DecimalEncoder)
-    context = {
-        'servicos_json': servicos_json
-    }
+    context = {'servicos_json': servicos_json}
     return render(request, 'agendamentos/painel.html', context)
 
 @login_required
@@ -99,12 +92,11 @@ def agendar_servico(request, servico_id):
     horarios_disponiveis = []
     slot_atual = datetime.combine(dia_selecionado, horario_inicio)
     fim_dia = datetime.combine(dia_selecionado, horario_fim)
-    
+    duracao_servico_minutos = 60
     while slot_atual < fim_dia:
-        if slot_atual.time() not in horarios_ocupados and slot_atual > datetime.now():
+        if slot_atual.time() not in horarios_ocupados and slot_atualmente > datetime.now():
             horarios_disponiveis.append(slot_atual.time())
-        slot_atual += timedelta(minutes=servico.duracao)
-        
+        slot_atual += timedelta(minutes=duracao_servico_minutos)
     context = {'servico': servico, 'horarios_disponiveis': horarios_disponiveis, 'dia_selecionado': dia_selecionado}
     return render(request, 'agendamentos/agendar_servico.html', context)
 
@@ -112,23 +104,19 @@ def agendar_servico(request, servico_id):
 def confirmar_agendamento(request, servico_id, year, month, day, hour, minute):
     servico = get_object_or_404(Servico, id=servico_id)
     data_hora_agendamento = datetime(year, month, day, hour, minute)
-    
     if Agendamento.objects.filter(data_hora=data_hora_agendamento, status='Confirmado').exists():
         messages.error(request, 'Ops! Este horário já está ocupado por um agendamento confirmado.')
         return redirect('agendamentos:painel')
-
     if request.method == 'POST':
         form = ClienteForm(request.POST)
         cliente_origem = request.POST.get('cliente_origem')
         cliente = None
-
         if cliente_origem == 'existente':
             cliente_id = request.POST.get('cliente_id')
             if not cliente_id:
                 messages.error(request, 'Você precisa selecionar uma cliente existente.')
             else:
                 cliente = get_object_or_404(Cliente, id=cliente_id)
-        
         elif cliente_origem == 'novo':
             if form.is_valid():
                 try:
@@ -140,36 +128,25 @@ def confirmar_agendamento(request, servico_id, year, month, day, hour, minute):
             else:
                 for field, error_list in form.errors.items():
                     messages.error(request, f"Erro no campo '{form.fields[field].label}': {error_list[0]}")
-        
         if cliente:
             novo_agendamento = Agendamento.objects.create(cliente=cliente, servico=servico, data_hora=data_hora_agendamento, status='Confirmado')
-            
-            # --- LÓGICA DE ENVIO DE E-MAIL RESTAURADA ---
             try:
-                # E-mail para a cliente
                 assunto_cliente = f"Confirmação de Agendamento - BellCilios"
                 data_formatada = novo_agendamento.data_hora.strftime('%d/%m/%Y às %H:%M')
                 mensagem_cliente = (f"Olá, {cliente.nome}!\n\nSeu agendamento para '{servico.nome}' foi confirmado para {data_formatada}.\n\nAtenciosamente,\nEquipe BellCilios")
                 send_mail(assunto_cliente, mensagem_cliente, settings.DEFAULT_FROM_EMAIL, [cliente.email])
-
-                # Notificação para a Rebeca
                 assunto_dono = f"Novo Agendamento: {servico.nome} para {cliente.nome}"
                 mensagem_dono = (f"Novo agendamento realizado:\n\nCliente: {cliente.nome}\nTelefone: {cliente.telefone}\nServiço: {servico.nome}\nData e Hora: {data_formatada}")
-                send_mail(assunto_dono, mensagem_dono, settings.DEFAULT_FROM_EMAIL, [settings.DEFAULT_FROM_EMAIL])
-
+                send_mail(assunto_dono, mensagem_dono, settings.DEFAULT_from_email, [settings.DEFAULT_FROM_EMAIL])
             except Exception as e:
                 print(f"ERRO AO ENVIAR E-MAIL DE CONFIRMAÇÃO: {e}")
                 messages.warning(request, 'Agendamento confirmado, mas houve um erro ao enviar o e-mail.')
-            
             messages.success(request, f'Agendamento para {cliente.nome} confirmado com sucesso!')
             return redirect('agendamentos:painel')
-
-    # Se a requisição for GET ou se houve um erro no POST
     clientes = Cliente.objects.all().order_by('nome')
-    form = ClienteForm() # Garante que o formulário esteja sempre disponível
+    form = ClienteForm()
     context = {'servico': servico, 'data_hora': data_hora_agendamento, 'clientes': clientes, 'form': form}
     return render(request, 'agendamentos/confirmar_agendamento.html', context)
-
 
 @login_required
 def gerir_servicos(request):
@@ -180,7 +157,7 @@ def gerir_servicos(request):
 @login_required
 def criar_servico(request):
     if request.method == 'POST':
-        form = ServicoForm(request.POST)
+        form = ServicoForm(request.POST, request.FILES) # request.FILES ESTÁ AQUI
         if form.is_valid():
             form.save()
             messages.success(request, 'Serviço adicionado com sucesso!')
@@ -194,7 +171,7 @@ def criar_servico(request):
 def editar_servico(request, servico_id):
     servico = get_object_or_404(Servico, id=servico_id)
     if request.method == 'POST':
-        form = ServicoForm(request.POST, instance=servico)
+        form = ServicoForm(request.POST, request.FILES, instance=servico) # request.FILES ESTÁ AQUI
         if form.is_valid():
             form.save()
             messages.success(request, 'Serviço atualizado com sucesso!')
@@ -204,16 +181,26 @@ def editar_servico(request, servico_id):
     context = {'form': form, 'titulo_pagina': f'Editar Serviço: {servico.nome}'}
     return render(request, 'agendamentos/criar_editar_servico.html', context)
 
+import os
+from django.conf import settings
+
 @login_required
 def excluir_servico(request, servico_id):
     servico = get_object_or_404(Servico, id=servico_id)
     if request.method == 'POST':
         nome_servico = servico.nome
+
+        # Apaga o arquivo da imagem se existir
+        if servico.imagem and os.path.isfile(servico.imagem.path):
+            os.remove(servico.imagem.path)
+
         servico.delete()
         messages.success(request, f'Serviço "{nome_servico}" excluído com sucesso!')
         return redirect('agendamentos:gerir_servicos')
+    
     context = {'servico': servico}
     return render(request, 'agendamentos/excluir_servico_confirm.html', context)
+
 
 @login_required
 def gerir_agendamentos(request):

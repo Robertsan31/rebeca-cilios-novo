@@ -43,9 +43,10 @@ class Cliente(models.Model):
 
 class Servico(models.Model):
     nome = models.CharField(max_length=100)
-    descricao = models.TextField(blank=True)
-    duracao = models.IntegerField(help_text="Duração do serviço em minutos")
-    preco = models.DecimalField(max_digits=8, decimal_places=2)
+    descricao = models.TextField()
+    preco = models.DecimalField(max_digits=6, decimal_places=2)
+
+    imagem = models.ImageField(upload_to='servicos/', blank=True, null=True, verbose_name="Imagem do Serviço")
 
     def __str__(self):
         return self.nome

@@ -1,30 +1,17 @@
-# app.yaml - Ficheiro de configuração para o Google App Engine
+# app.yaml
 
-# Define a versão do Python que a nuvem deve usar
-runtime: python312 
+runtime: python312
 
-# O entrypoint diz ao Google como iniciar o nosso servidor web.
-# Usamos o Gunicorn, um servidor robusto para produção.
+# ADICIONE ESTE BLOCO PARA CONFIGURAR O NÍVEL GRATUITO
+automatic_scaling:
+  min_instances: 0  # Permite que o site "durma" para custo zero quando não há visitas
+  max_instances: 1  # Limita a no máximo 1 instância para evitar custos inesperados
+
 entrypoint: gunicorn -b :$PORT agendamento_system.wsgi:application --workers 2
 
-# env_variables são as nossas "variáveis de ambiente" para a nuvem.
 env_variables:
-  # --- Chaves de Segurança do Django e SendGrid ---
-  SECRET_KEY: 'xfqcidyehecnvpw'
-  SENDGRID_API_KEY: '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'
-  
-  # --- ID do Projeto (Usado pelo settings.py para o ALLOWED_HOSTS) ---
-  GCP_PROJECT_ID: 'agendamentos-system'
+  # ... (suas variáveis de ambiente, como SECRET_KEY, DB_PASSWORD, etc.) ...
 
-  # --- Credenciais do Banco de Dados (Cloud SQL) ---
-  # O Nome da Conexão da sua instância
-  CLOUD_SQL_CONNECTION_NAME: 'agendamentos-system:southamerica-east1:bellcilios-db'
-  DB_NAME: 'bellcilios_db'
-  DB_USER: 'root'
-  DB_PASSWORD: 'TDo1/"iMMb?%[2G}UI'
-
-# handlers direcionam o tráfego. Esta seção é para servir os ficheiros estáticos
-# (CSS, JavaScript, imagens) de forma eficiente.
 handlers:
 - url: /static
   static_dir: staticfiles/

@@ -2,6 +2,7 @@
 from django import forms
 from .models import Cliente, Servico
 
+# O ClienteForm permanece igual, não precisa mexer aqui.
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
@@ -13,13 +14,16 @@ class ClienteForm(forms.ModelForm):
             'cpf': forms.TextInput(attrs={'class': 'form-control', 'required': True}),
         }
 
+# O ServicoForm foi corrigido abaixo.
 class ServicoForm(forms.ModelForm):
     class Meta:
         model = Servico
-        fields = ['nome', 'descricao', 'duracao', 'preco']
+        # CORREÇÃO: Removemos 'duracao' e adicionamos 'imagem'
+        fields = ['nome', 'descricao', 'preco', 'imagem']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'duracao': forms.NumberInput(attrs={'class': 'form-control'}),
             'preco': forms.NumberInput(attrs={'class': 'form-control'}),
+            # Adicionamos o widget para o novo campo de imagem
+            'imagem': forms.FileInput(attrs={'class': 'form-control'}),
         }

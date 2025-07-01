@@ -4,6 +4,10 @@ from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from agendamentos import views as agendamento_views
 
+# >>> NOVOS IMPORTS ADICIONADOS <<<
+from django.conf import settings
+from django.conf.urls.static import static
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
@@ -17,10 +21,13 @@ urlpatterns = [
 
     # --- ROTAS DE API ---
     path('api/agendamentos/', agendamento_views.api_agendamentos, name='api_agendamentos'),
-    # NOVA ROTA PARA A NOTIFICAÇÃO NA TELA
     path('api/notificacao/', agendamento_views.api_notificacao_proximo_agendamento, name='api_notificacao_proximo_agendamento'),
 
     # --- PAINEL DE CONTROLE PRIVADO ---
-    # Incluímos aqui TODAS as URLs do painel.
     path('painel/', include('agendamentos.urls', namespace='agendamentos')),
 ]
+
+# >>> NOVA CONDIÇÃO ADICIONADA NO FINAL <<<
+# Isso serve os arquivos de mídia (uploads) em ambiente de desenvolvimento
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

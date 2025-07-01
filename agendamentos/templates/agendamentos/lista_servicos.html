@@ -11,6 +11,9 @@
         {% for servico in servicos %}
         <div class="col">
             <div class="card h-100 shadow-sm" style="border-radius: 15px; border: none;">
+                {% if servico.imagem %}
+                    <img src="{{ servico.imagem.url }}" class="card-img-top" alt="{{ servico.nome }}" style="border-top-left-radius: 15px; border-top-right-radius: 15px; object-fit: cover; max-height: 200px;">
+                {% endif %}
                 <div class="card-body d-flex flex-column">
                     <h5 class="card-title" style="color: #a389cc;">{{ servico.nome }}</h5>
                     <p class="card-text text-muted flex-grow-1">{{ servico.descricao|default:"Descrição não disponível." }}</p>
@@ -20,6 +23,7 @@
                     </div>
                 </div>
             </div>
+            
         </div>
         {% empty %}
         <div class="col-12">
