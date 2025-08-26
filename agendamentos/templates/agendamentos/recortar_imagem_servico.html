@@ -1,0 +1,118 @@
+{% extends 'agendamentos/base.html' %}
+{% load static %}
+
+{% block title %}Recortar Imagem do Serviço{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+<style>
+  .img-wrap{
+    border:1px dashed #d9c9a5;
+    border-radius:12px;
+    background:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:420px;
+  }
+  #cropper-image{ max-width:100%; display:block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="mb-0">Recortar Imagem — {{ servico.nome }}</h1>
+  <a href="{% url 'agendamentos:gerir_servicos' %}" class="btn btn-secondary">Voltar</a>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+      {{ message }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+
+{% if not imagem_url %}
+  <div class="alert alert-warning">
+    Este serviço ainda não tem uma imagem enviada. Volte em <b>Editar Serviço</b>, envie a imagem
+    e você será redirecionado(a) para esta tela de recorte automaticamente.
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <form id="cropForm" method="post" action="{% url 'agendamentos:recortar_imagem_servico' servico.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="cropData" id="cropData">
+      <div class="row g-4">
+        <div class="col-lg-9">
+          <div class="img-wrap">
+            {% if imagem_url %}
+              <img id="cropper-image" src="{{ imagem_url }}" alt="Imagem para recorte">
+            {% else %}
+              <img id="cropper-image" src="{% static 'agendamentos/img/placeholder.png' %}" alt="Sem imagem">
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-lg-3">
+          <div class="d-grid gap-2">
+            <button type="button" class="btn btn-outline-secondary" id="btn-zoom-in">Zoom +</button>
+            <button type="button" class="btn btn-outline-secondary" id="btn-zoom-out">Zoom −</button>
+            <button type="button" class="btn btn-outline-secondary" id="btn-rotate">Rotacionar 90°</button>
+            <button type="button" class="btn btn-outline-secondary" id="btn-reset">Resetar</button>
+          </div>
+          <hr>
+          <button type="submit" class="btn btn-primary w-100">Salvar recorte</button>
+          <a href="{% url 'agendamentos:editar_servico' servico.id %}" class="btn btn-light w-100 mt-2">Cancelar</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+<script>
+  (function(){
+    const img = document.getElementById('cropper-image');
+    const form = document.getElementById('cropForm');
+    const hidden = document.getElementById('cropData');
+    let cropper = null;
+
+    function init(){
+      if(!img || !img.src) return;
+      if(cropper){ cropper.destroy(); cropper = null; }
+      cropper = new Cropper(img, {
+        viewMode: 1,
+        dragMode: 'move',
+        aspectRatio: 1,
+        autoCropArea: 1,
+        background: false,
+        movable: true,
+        zoomable: true,
+        rotatable: true,
+        responsive: true,
+        checkCrossOrigin: false
+      });
+    }
+
+    document.getElementById('btn-zoom-in').addEventListener('click', ()=>{ if(cropper) cropper.zoom(0.1); });
+    document.getElementById('btn-zoom-out').addEventListener('click', ()=>{ if(cropper) cropper.zoom(-0.1); });
+    document.getElementById('btn-rotate').addEventListener('click', ()=>{ if(cropper) cropper.rotate(90); });
+    document.getElementById('btn-reset').addEventListener('click', ()=>{ if(cropper) cropper.reset(); });
+
+    form.addEventListener('submit', function(ev){
+      if(!cropper){
+        ev.preventDefault();
+        return;
+      }
+      const canvas = cropper.getCroppedCanvas({ width: 1200, height: 1200, imageSmoothingQuality: 'high' });
+      hidden.value = canvas.toDataURL('image/jpeg', 0.9); // compatível com a view
+    });
+
+    window.addEventListener('load', init);
+  })();
+</script>
+{% endblock %}

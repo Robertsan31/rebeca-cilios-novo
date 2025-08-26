@@ -1,87 +1,114 @@
+<!-- agendamentos/templates/agendamentos/painel.html -->
 {% extends "agendamentos/base.html" %}
+{% load static %}
 
 {% block extra_css %}
-<!-- Google Font: Poppins -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 
-<!-- Estilos personalizados para o FullCalendar e Modo Noturno -->
 <style>
-    :root {
-        /* Tema Claro (Padrão) */
-        --bg-color: #fdfaff;
-        --card-bg-color: #ffffff;
-        --text-color: #212529;
-        --text-muted-color: #6c757d;
-        --primary-color: #a389cc;
-        --primary-color-dark: #8f74b5;
-        --primary-color-text: #5d4a7b;
-        --border-color: #eef0f4;
-        --fc-border-color: #e8e7ec;
-        --fc-day-today-bg: rgba(225, 215, 240, 0.3);
-        --fc-event-text-color: #2c2c3e;
-        --fc-time-text-color: #555;
-    }
+  :root { --fc-event-text-color: #FFFFFF; }
+  body { font-family: 'Poppins', sans-serif !important; }
 
-    body.dark-mode {
-        /* Tema Noturno (Refinado) */
-        --bg-color: #1a1a2e;
-        --card-bg-color: #2a2a45;
-        --text-color: #e9e9f0;
-        --text-muted-color: #a0a0b5;
-        --primary-color: #a389cc;
-        --primary-color-dark: #b39ddb;
-        --primary-color-text: #e9e9f0;
-        --border-color: #3a3a5a;
-        --fc-border-color: #3a3a5a;
-        --fc-day-today-bg: rgba(42, 42, 69, 0.7);
-        --fc-event-text-color: #ffffff;
-        --fc-time-text-color: #c5c5dd;
-    }
+  /* ---- CALENDÁRIO ---- */
+  #calendar {
+    font-family: 'Poppins', sans-serif;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1.5px solid #ecd7b3;
+    padding: 1rem;
+    background-color: #fff;
+    box-shadow: 0 10px 30px rgba(200,180,90,0.10);
+    min-height: 70vh;
+  }
 
-    /* ... (Resto do seu CSS elegante) ... */
-    body{background-color:var(--bg-color);color:var(--text-color);font-family:'Poppins',sans-serif;transition:background-color .3s,color .3s}.card{background-color:var(--card-bg-color);border-color:var(--border-color);transition:background-color .3s,border-color .3s}.lead.text-muted{color:var(--text-muted-color) !important}#calendar-container{border-radius:15px;overflow:hidden;border:1px solid var(--border-color)}#calendar{font-family:'Poppins',sans-serif}.fc-header-toolbar{margin-bottom:2em !important;padding:0 1em}.fc-toolbar-title{color:var(--primary-color-text);font-weight:500;font-size:1.8rem !important}.fc .fc-button-primary{background-color:var(--primary-color);border-color:var(--primary-color);transition:background-color .3s;font-weight:500;border-radius:8px}.fc .fc-button-primary:hover,.fc .fc-button-primary:active{background-color:var(--primary-color-dark);border-color:var(--primary-color-dark)}.fc .fc-daygrid-day-number:hover{color:var(--primary-color-dark)}.fc .fc-day-today{background-color:var(--fc-day-today-bg)}.fc .fc-event-title,.fc .fc-event-main{color:var(--fc-event-text-color) !important}.fc .fc-col-header-cell-cushion{color:var(--text-muted-color);text-decoration:none}body.dark-mode .fc .fc-col-header-cell-cushion{color:#c5c5dd;font-weight:500}body.dark-mode .fc .fc-daygrid-day-number{color:var(--text-muted-color)}.fc-timegrid-slot-label{color:var(--fc-time-text-color)}.fc-v-event{box-shadow:0 2px 5px rgba(0,0,0,.1);cursor:pointer}body.dark-mode .fc-event{background-color:rgba(163,137,204,.25) !important;border:1px solid rgba(163,137,204,.7) !important}.modal-content{background-color:var(--card-bg-color);border-color:var(--border-color)}.modal-header{background-color:var(--primary-color);color:#fff}.modal-header .btn-close{filter:invert(1) grayscale(100%) brightness(200%)}.theme-switch-wrapper{display:flex;align-items:center}.theme-switch{display:inline-block;height:24px;position:relative;width:48px}.theme-switch input{display:none}.slider{background-color:#ccc;bottom:0;cursor:pointer;left:0;position:absolute;right:0;top:0;transition:.4s}.slider:before{background-color:#fff;bottom:4px;content:"";height:16px;left:4px;position:absolute;transition:.4s;width:16px}input:checked+.slider{background-color:var(--primary-color)}input:checked+.slider:before{transform:translateX(24px)}.slider.round{border-radius:34px}.slider.round:before{border-radius:50%}.service-list-item{transition:background-color .2s}.service-list-item:hover{background-color:rgba(163,137,204,.1)}
+  .fc .fc-toolbar-title { font-size: 2.1rem !important; font-weight: 700; color: #8c6c21; }
+  .fc .fc-toolbar.fc-header-toolbar { gap: .6rem; }
+
+  .fc .fc-button {
+    border-radius: 9999px !important;
+    padding: .45rem .9rem !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 12px rgba(166,124,0,.12);
+  }
+  .fc .fc-button-primary,
+  .fc .fc-button-primary:focus,
+  .fc .fc-button-primary:hover { background-color: #a67c00; border-color: #a67c00; }
+
+  .fc .fc-day-today {
+    background-color: rgba(166,124,0,0.08) !important;
+    outline: 2px solid #a67c00;
+    outline-offset: -2px;
+    border-radius: 8px;
+  }
+
+  .fc-day-sat .fc-daygrid-day-frame,
+  .fc-day-sun .fc-daygrid-day-frame {
+    background: linear-gradient(180deg, rgba(166,124,0,0.04), transparent 40%);
+  }
+
+  .fc .fc-event {
+    border-radius: 12px !important;
+    border: 0 !important;
+    padding: 2px 6px !important;
+    font-size: .95rem !important;
+  }
+
+  .fc-theme-standard .fc-scrollgrid { border-radius: 14px; }
+
+  /* Dark mode */
+  body.dark-mode #calendar { background-color: #232325; border-color: #574b2b; }
+  body.dark-mode .fc-theme-standard .fc-scrollgrid { background: #2a2a45; }
+  body.dark-mode .fc .fc-day-today { background-color: rgba(140,108,33,.28) !important; }
+  body.dark-mode h1, body.dark-mode .lead { color: #ffe395; }
+  body.dark-mode .modal-header { background-color: #8c6c21; }
+
+  /* Switch de tema */
+  .theme-switch-wrapper{display:flex;align-items:center;color:#8c6c21;}
+  .theme-switch{display:inline-block;height:24px;position:relative;width:48px}
+  .theme-switch input{display:none}
+  .slider{background-color:#ccc;bottom:0;cursor:pointer;left:0;position:absolute;right:0;top:0;transition:.4s}
+  .slider:before{background-color:#fff;bottom:4px;content:"";height:16px;left:4px;position:absolute;transition:.4s;width:16px}
+  input:checked+.slider{background-color:#a67c00}
+  input:checked+.slider:before{transform:translateX(24px)}
+  .slider.round{border-radius:34px}
+  .slider.round:before{border-radius:50%}
+  body.dark-mode .theme-switch-wrapper{color:#ffe395;}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div class="text-start">
-            <h1 class="display-6" style="color: var(--primary-color-text); font-weight: 300;">Painel de Agendamentos</h1>
-            <p class="lead text-muted mb-0">Visualize seus compromissos e clique em um horário vago para agendar.</p>
-        </div>
-        <div class="theme-switch-wrapper">
-            <i class="bi bi-brightness-high-fill me-2"></i>
-            <label class="theme-switch" for="theme-switch-checkbox">
-                <input type="checkbox" id="theme-switch-checkbox" />
-                <div class="slider round"></div>
-            </label>
-            <i class="bi bi-moon-stars-fill ms-2"></i>
-        </div>
-    </div>
-
-    <div class="card shadow-sm">
-        <div class="card-body p-lg-4 p-2">
-            <div id='calendar-container'>
-                <div id='calendar'></div>
-            </div>
-        </div>
-    </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="display-6 fw-light">Painel de Agendamentos</h1>
+    <p class="lead text-muted mb-0">Visualize seus compromissos e clique em um horário vago para agendar.</p>
+  </div>
+  <div class="theme-switch-wrapper">
+    <i class="bi bi-brightness-high-fill me-2"></i>
+    <label class="theme-switch" for="theme-switch-checkbox">
+      <input type="checkbox" id="theme-switch-checkbox" />
+      <div class="slider round"></div>
+    </label>
+    <i class="bi bi-moon-stars-fill ms-2"></i>
+  </div>
 </div>
 
-<!-- Container para a notificação flutuante -->
-<div id="notification-toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1095;">
-    <!-- O toast da notificação será inserido aqui pelo JavaScript -->
+<!-- CALENDÁRIO -->
+<div class="card shadow-sm">
+  <div class="card-body p-lg-4 p-2">
+    <div id="calendar" data-events-url="{% url 'agendamentos:api_agendamentos' %}"></div>
+  </div>
 </div>
 
-
-<!-- Modals -->
+<!-- Modal Detalhes do Agendamento -->
 <div class="modal fade" id="appointmentModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title">Detalhes do Agendamento</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-header text-white" style="background:#a67c00;">
+        <h5 class="modal-title">Detalhes do Agendamento</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
       <div class="modal-body">
         <p><strong>Cliente:</strong> <span id="modal-cliente-nome"></span></p>
         <p><strong>Serviço:</strong> <span id="modal-servico-nome"></span></p>
@@ -90,17 +117,28 @@
         <hr>
         <p><i class="bi bi-telephone"></i> <span id="modal-cliente-telefone"></span></p>
         <p><i class="bi bi-envelope"></i> <span id="modal-cliente-email"></span></p>
+
+        <!-- Notificação + botão WhatsApp -->
+        <div id="modal-whats-container" class="mt-3"></div>
       </div>
-      <div class="modal-footer"><a href="#" id="modal-edit-link" class="btn btn-outline-secondary">Gerenciar Agendamento</a><button type="button" class="btn btn-primary-custom" data-bs-dismiss="modal">Fechar</button></div>
+      <div class="modal-footer">
+        <a href="#" id="modal-edit-link" class="btn btn-outline-secondary">Gerenciar Agendamento</a>
+        <button type="button" class="btn btn-primary-custom" data-bs-dismiss="modal">Fechar</button>
+      </div>
     </div>
   </div>
 </div>
+
+<!-- Modal Novo Agendamento -->
 <div class="modal fade" id="newAppointmentModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title">Novo Agendamento</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-header text-white" style="background:#a67c00;">
+        <h5 class="modal-title">Novo Agendamento</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
       <div class="modal-body">
-        <p>Selecione um serviço para o horário <strong id="new-appointment-time"></strong>:</p>
+        <p>Selecione um serviço para o dia <strong id="new-appointment-time"></strong>:</p>
         <div class="list-group" id="service-list"></div>
       </div>
     </div>
@@ -109,108 +147,195 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core/locales/pt-br.global.min.js"></script>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    // --- LÓGICA DO MODO NOTURNO ---
-    const themeSwitch = document.getElementById('theme-switch-checkbox');
-    const currentTheme = localStorage.getItem('theme');
-    function setTheme(theme) {
-        document.body.classList.toggle('dark-mode', theme === 'dark');
-        themeSwitch.checked = theme === 'dark';
+document.addEventListener('DOMContentLoaded', function () {
+  /* ===== Helpers ===== */
+  function applyTheme(theme){
+    document.body.classList.toggle('dark-mode', theme === 'dark');
+    document.getElementById('theme-switch-checkbox').checked = theme === 'dark';
+  }
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function formatPtBR(date){
+    try{
+      return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    }catch(e){
+      // fallback manual
+      return `${pad2(date.getDate())}/${pad2(date.getMonth()+1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
     }
-    if (currentTheme) { setTheme(currentTheme); }
-    themeSwitch.addEventListener('change', function(event) {
-        const theme = event.target.checked ? 'dark' : 'light';
-        localStorage.setItem('theme', theme);
-        setTheme(theme);
-    });
+  }
+  function normalizePhoneBR(phone){
+    if(!phone) return '';
+    let p = String(phone).replace(/[^\d]/g,'');
+    // se não tiver DDI, adiciona 55
+    if(p.length >= 10 && !p.startsWith('55')) p = '55' + p;
+    return p;
+  }
+  function buildWhatsHref(phone, message){
+    const to = normalizePhoneBR(phone);
+    const msg = encodeURIComponent(message || '');
+    return `https://wa.me/${to}?text=${msg}`;
+  }
 
-    // --- LÓGICA DO CALENDÁRIO ---
-    const calendarEl = document.getElementById('calendar');
-    const appointmentModal = new bootstrap.Modal(document.getElementById('appointmentModal'));
-    const newAppointmentModal = new bootstrap.Modal(document.getElementById('newAppointmentModal'));
-    const serviceListEl = document.getElementById('service-list');
-    const newAppointmentTimeEl = document.getElementById('new-appointment-time');
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-      headerToolbar: {
-        left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-      },
-      initialView: 'timeGridWeek',
-      locale: 'pt-br',
-      buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia', list: 'Lista' },
-      allDaySlot: false,
-      slotMinTime: "09:00:00",
-      slotMaxTime: "19:00:00",
-      height: 'auto',
-      nowIndicator: true,
-      navLinks: true, 
-      selectable: true,
-      // CORREÇÃO: A URL agora inclui o namespace 'agendamentos'
-      events: "{% url 'agendamentos:api_agendamentos' %}", 
-
-      eventClick: function(info) {
-        info.jsEvent.preventDefault(); 
-        const props = info.event.extendedProps;
-        document.getElementById('modal-cliente-nome').textContent = props.cliente_nome;
-        document.getElementById('modal-servico-nome').textContent = props.servico_nome;
-        document.getElementById('modal-data-hora').textContent = info.event.start.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short'});
-        document.getElementById('modal-cliente-telefone').textContent = props.cliente_telefone;
-        document.getElementById('modal-cliente-email').textContent = props.cliente_email;
-        const statusBadge = document.getElementById('modal-status');
-        statusBadge.textContent = props.status;
-        statusBadge.className = 'badge'; 
-        if (props.status === 'Confirmado') { statusBadge.classList.add('bg-success'); } 
-        else if (props.status === 'Cancelado') { statusBadge.classList.add('bg-secondary'); }
-        else { statusBadge.classList.add('bg-info'); }
-        const gerirUrl = `/painel/agendamentos/?data=${info.event.start.toISOString().slice(0,10)}`;
-        document.getElementById('modal-edit-link').href = gerirUrl;
-        appointmentModal.show();
-      },
-      dateClick: function(info) {
-        const clickedTime = info.date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short'});
-        newAppointmentTimeEl.textContent = clickedTime;
-        serviceListEl.innerHTML = '';
-        const servicos = {{ servicos_json|safe }};
-        servicos.forEach(servico => {
-            const url = `/painel/confirmar/${servico.id}/${info.date.getFullYear()}/${info.date.getMonth() + 1}/${info.date.getDate()}/${info.date.getHours()}/${info.date.getMinutes()}/`;
-            const listItem = document.createElement('a');
-            listItem.href = url;
-            listItem.className = 'list-group-item list-group-item-action service-list-item';
-            listItem.innerHTML = `<div class="d-flex w-100 justify-content-between"><h5 class="mb-1">${servico.nome}</h5><small>${servico.duracao} min</small></div><small>R$ ${parseFloat(servico.preco).toFixed(2)}</small>`;
-            serviceListEl.appendChild(listItem);
-        });
-        newAppointmentModal.show();
-      }
-    });
-    calendar.render();
-
-    // --- LÓGICA DA NOTIFICAÇÃO FLUTUANTE ---
-    const notificationToastContainer = document.getElementById('notification-toast-container');
-    let lastNotification = null;
-
-    function checkUpcomingAppointment() {
-        // CORREÇÃO: A URL agora inclui o namespace 'agendamentos'
-        fetch("{% url 'agendamentos:api_notificacao_proximo_agendamento' %}")
-            .then(response => response.json())
-            .then(data => {
-                if (data.notificacao && lastNotification !== data.horario + data.cliente) {
-                    lastNotification = data.horario + data.cliente;
-                    
-                    const toastHTML = `<div class="toast show" role="alert"><div class="toast-header"><i class="bi bi-alarm-fill me-2 text-primary"></i><strong class="me-auto">Lembrete de Agendamento</strong><small>Agora</small><button type="button" class="btn-close" data-bs-dismiss="toast"></button></div><div class="toast-body">Próximo atendimento: <strong>${data.cliente}</strong> (${data.servico}) às <strong>${data.horario}</strong>.</div></div>`;
-                    notificationToastContainer.innerHTML = toastHTML;
-                    const toastEl = notificationToastContainer.querySelector('.toast');
-                    const toast = new bootstrap.Toast(toastEl, { autohide: false });
-                    toast.show();
-                }
-            })
-            .catch(error => console.error('Erro ao buscar notificação:', error));
-    }
-    
-    setInterval(checkUpcomingAppointment, 60000); 
-    checkUpcomingAppointment();
+  /* ===== Tema ===== */
+  const themeSwitch = document.getElementById('theme-switch-checkbox');
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) applyTheme(savedTheme);
+  themeSwitch.addEventListener('change', e => {
+    const t = e.target.checked ? 'dark' : 'light';
+    localStorage.setItem('theme', t);
+    applyTheme(t);
   });
+
+  /* ===== Calendário ===== */
+  const calendarEl = document.getElementById('calendar');
+  const appointmentModalEl = document.getElementById('appointmentModal');
+  const newAppointmentModalEl = document.getElementById('newAppointmentModal');
+  if (!calendarEl || !appointmentModalEl || !newAppointmentModalEl) {
+    console.error("Elementos essenciais do calendário não encontrados!");
+    return;
+  }
+  const appointmentModal = new bootstrap.Modal(appointmentModalEl);
+  const newAppointmentModal = new bootstrap.Modal(newAppointmentModalEl);
+  const serviceListEl = document.getElementById('service-list');
+  const newAppointmentTimeEl = document.getElementById('new-appointment-time');
+
+  // Hoje (para bloquear clique no passado)
+  const now = new Date();
+
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' },
+    initialView: 'dayGridMonth',
+    locale: 'pt-br',
+    buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia', list: 'Lista' },
+    allDaySlot: false,
+    slotMinTime: "09:00:00",
+    slotMaxTime: "19:00:00",
+    height: '78vh',
+    expandRows: true,
+    aspectRatio: 1.2,
+    dayMaxEventRows: 3,
+    nowIndicator: true,
+    navLinks: true,
+    selectable: true,
+
+    // carrega do endpoint
+    events: calendarEl.dataset.eventsUrl,
+    loading: (isLoading) => console.log("Carregando eventos:", isLoading),
+    eventSourceSuccess: (raw) => console.log("Eventos OK:", raw),
+    eventSourceFailure: (err) => console.error("Erro ao buscar eventos:", err),
+
+    eventDidMount: function(info) {
+      // Aparência "pill"
+      info.el.style.borderRadius = '12px';
+      info.el.style.border = '0';
+      info.el.style.padding = '2px 6px';
+      // Cor por status (se a API não enviar cor)
+      const p = info.event.extendedProps || {};
+      const st = (p.status || '').toLowerCase();
+      if(!info.event.backgroundColor || info.event.backgroundColor === '') {
+        let bg = '#6c757d'; // secondary
+        let color = '#fff';
+        if(st === 'confirmado') bg = '#198754';
+        else if(st === 'cancelado') bg = '#dc3545';
+        else if(st === 'realizado') bg = '#0d6efd';
+        else if(st === 'pendente'){ bg = '#ffc107'; color = '#222'; }
+        info.el.style.backgroundColor = bg;
+        info.el.style.color = color;
+      }
+    },
+
+    eventClick: function (info) {
+      info.jsEvent.preventDefault();
+      const p = info.event.extendedProps || {};
+      const start = info.event.start;
+
+      // Dados no modal
+      document.getElementById('modal-cliente-nome').textContent = p.cliente_nome || '';
+      document.getElementById('modal-servico-nome').textContent = p.servico_nome || '';
+      document.getElementById('modal-data-hora').textContent = formatPtBR(start);
+
+      const statusEl = document.getElementById('modal-status');
+      statusEl.textContent = p.status || '';
+      statusEl.className = 'badge';
+      if (p.status === 'Confirmado') statusEl.classList.add('bg-success');
+      else if (p.status === 'Cancelado') statusEl.classList.add('bg-danger');
+      else if (p.status === 'Realizado') statusEl.classList.add('bg-primary');
+      else statusEl.classList.add('bg-secondary');
+
+      document.getElementById('modal-cliente-telefone').textContent = p.cliente_telefone || '';
+      document.getElementById('modal-cliente-email').textContent = p.cliente_email || '';
+
+      // Link Gerenciar (leva para a lista do dia)
+      document.getElementById('modal-edit-link').href =
+        "{% url 'agendamentos:gerir_agendamentos' %}?data=" + info.event.startStr.substring(0, 10);
+
+      // Notificação + Whats dentro do modal
+      const whatsContainer = document.getElementById('modal-whats-container');
+      whatsContainer.innerHTML = '';
+      let msg, btnClass, alertClass, btnText, leadText;
+
+      if ((p.status || '').toLowerCase() === 'cancelado') {
+        leadText = 'Agendamento cancelado.';
+        msg = `Olá ${p.cliente_nome || ''}, lamentamos informar que seu agendamento de ${p.servico_nome || 'serviço'} em ${formatPtBR(start)} foi cancelado. Caso queira remarcar, estamos à disposição.`;
+        btnClass = 'btn btn-danger';
+        alertClass = 'alert alert-danger';
+        btnText = '<i class="bi bi-whatsapp"></i> Enviar mensagem de cancelamento';
+      } else {
+        leadText = 'Agendamento confirmado.';
+        msg = `Oi ${p.cliente_nome || ''}! Confirmando seu horário de ${p.servico_nome || 'serviço'} em ${formatPtBR(start)}. Qualquer dúvida é só me chamar 💖`;
+        btnClass = 'btn btn-success';
+        alertClass = 'alert alert-success';
+        btnText = '<i class="bi bi-whatsapp"></i> Enviar mensagem de confirmação';
+      }
+
+      const waHref = buildWhatsHref(p.cliente_telefone, msg);
+      whatsContainer.innerHTML = `
+        <div class="${alertClass} d-flex justify-content-between align-items-center">
+          <span>${leadText}</span>
+          <a href="${waHref}" target="_blank" rel="noopener" class="${btnClass}">
+            ${btnText}
+          </a>
+        </div>
+      `;
+
+      appointmentModal.show();
+    },
+
+    dateClick: function (info) {
+      // Bloqueia passado (data passada do dia inteiro)
+      const clicked = new Date(info.dateStr + 'T00:00:00');
+      const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (clicked < todayOnly) {
+        // opcional: alerta simples
+        alert('Não é possível agendar em datas passadas.');
+        return;
+      }
+
+      // abre modal de novo agendamento
+      newAppointmentTimeEl.textContent = info.dateStr.split('-').reverse().join('/');
+      serviceListEl.innerHTML = '';
+      const servicos = {{ servicos_json|safe }};
+      servicos.forEach(s => {
+        const baseUrl = "{% url 'agendamentos:agendar_servico' 999 %}".replace('999', s.id);
+        const url = `${baseUrl}?data=${info.dateStr}`;
+        const a = document.createElement('a');
+        a.href = url;
+        a.className = 'list-group-item list-group-item-action';
+        a.innerHTML =
+          `<div class="d-flex w-100 justify-content-between">
+             <h5 class="mb-1" style="color:#8c6c21;">${s.nome}</h5>
+           </div>
+           <small>R$ ${parseFloat(s.preco).toFixed(2)}</small>`;
+        serviceListEl.appendChild(a);
+      });
+      newAppointmentModal.show();
+    }
+  });
+
+  calendar.render();
+});
 </script>
 {% endblock %}

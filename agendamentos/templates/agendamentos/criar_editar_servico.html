@@ -1,30 +1,159 @@
-<!-- agendamentos/templates/agendamentos/criar_editar_servico.html -->
 {% extends 'agendamentos/base.html' %}
 
 {% block title %}{{ titulo_pagina }}{% endblock %}
 
-{% block content %}
-    <h1 class="mb-4">{{ titulo_pagina }}</h1>
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+<style>
+  .img-wrap{border:1px dashed #d9c9a5; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; min-height:360px}
+  #cropper-image{max-width:100%; display:none}
+  .preview-box{
+    width:220px; height:220px; overflow:hidden; border-radius:12px; border:1px solid #e8dcbc;
+    background:#faf8f2; display:flex; align-items:center; justify-content:center
+  }
+  .preview-box img{max-width:100%}
+  .tool-btn{min-width:42px}
+</style>
+{% endblock %}
 
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        
-        {% for field in form %}
-            <div class="mb-3">
-                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}
-                    <div class="form-text">{{ field.help_text }}</div>
-                {% endif %}
-                {% for error in field.errors %}
-                    <div class="invalid-feedback d-block">{{ error }}</div>
-                {% endfor %}
-            </div>
-        {% endfor %}
-        
-        <div class="mt-4">
-            <button type="submit" class="btn btn-primary btn-lg">Salvar</button>
-            <a href="{% url 'agendamentos:gerir_servicos' %}" class="btn btn-secondary btn-lg">Cancelar</a>
+{% block content %}
+<h1 class="mb-4">{{ titulo_pagina }}</h1>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <form id="servico-form" method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.nome.id_for_label }}">Nome</label>
+        {{ form.nome }}
+        {% for error in form.nome.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.descricao.id_for_label }}">Descrição</label>
+        {{ form.descricao }}
+        {% for error in form.descricao.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label" for="{{ form.preco.id_for_label }}">Preço</label>
+          {{ form.preco }}
+          {% for error in form.preco.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
         </div>
+        {% if form.duracao %}
+        <div class="col-md-6 mb-3">
+          <label class="form-label" for="{{ form.duracao.id_for_label }}">Duração (min)</label>
+          {{ form.duracao }}
+          {% for error in form.duracao.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Imagem do serviço</label>
+        <!-- IMPORTANTE: name="imagem" -->
+        <input type="file" accept="image/*" class="form-control" id="id_imagem_file" name="imagem">
+        <div class="form-text">Use o recorte abaixo (padrão 1:1). Formatos JPG/PNG.</div>
+      </div>
+
+      <div class="img-wrap mb-2">
+        <img id="cropper-image" alt="Imagem para recorte">
+      </div>
+
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <div class="btn-group" role="group" aria-label="Aspect ratio">
+          <input type="radio" class="btn-check" name="ratio" id="ratio11" value="1" checked>
+          <label class="btn btn-outline-secondary" for="ratio11">1:1</label>
+
+          <input type="radio" class="btn-check" name="ratio" id="ratio32" value="1.5">
+          <label class="btn btn-outline-secondary" for="ratio32">3:2</label>
+
+          <input type="radio" class="btn-check" name="ratio" id="ratiofree" value="free">
+          <label class="btn btn-outline-secondary" for="ratiofree">Livre</label>
+        </div>
+
+        <div class="ms-auto d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary tool-btn" id="btn-zoom-in" title="Zoom +">+</button>
+          <button type="button" class="btn btn-outline-secondary tool-btn" id="btn-zoom-out" title="Zoom -">−</button>
+          <button type="button" class="btn btn-outline-secondary tool-btn" id="btn-rotate" title="Rotacionar">⟲</button>
+          <button type="button" class="btn btn-outline-secondary" id="btn-reset">Resetar</button>
+          <button type="button" class="btn btn-primary" id="btn-apply">Aplicar recorte</button>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-3 mb-4">
+        <div class="preview-box"><img id="preview-final" alt="Pré-visualização"></div>
+        <div class="small text-muted">Pré-visualização do que será salvo.</div>
+      </div>
+
+      <!-- Envia o recorte como base64 (opcional): a view salva direto -->
+      <input type="hidden" name="cropped_image_data" id="cropped_image_data">
+
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-lg">Salvar</button>
+        <a href="{% url 'agendamentos:gerir_servicos' %}" class="btn btn-secondary btn-lg">Cancelar</a>
+      </div>
     </form>
+  </div>
+
+  <div class="col-lg-5">
+    {% if form.instance.imagem %}
+    <div class="card">
+      <div class="card-header">Imagem atual</div>
+      <div class="card-body text-center">
+        <img src="{{ form.instance.imagem.url }}" alt="Atual" class="img-fluid rounded" style="max-height:320px">
+        <form method="post" action="{% url 'agendamentos:remover_imagem_servico' form.instance.id %}" class="mt-3">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Remover imagem atual?');">
+            Remover Imagem
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+<script>
+  let cropper=null;
+  const input=document.getElementById('id_imagem_file');
+  const img=document.getElementById('cropper-image');
+  const finalPreview=document.getElementById('preview-final');
+  const hiddenField=document.getElementById('cropped_image_data');
+
+  function initCropper(){
+    if(cropper){cropper.destroy();cropper=null;}
+    cropper=new Cropper(img,{viewMode:1,dragMode:'move',aspectRatio:1,autoCropArea:1,background:false,movable:true,zoomable:true,responsive:true,checkCrossOrigin:false});
+  }
+  input.addEventListener('change',e=>{
+    const f=e.target.files?.[0]; if(!f) return;
+    const url=URL.createObjectURL(f); img.src=url; img.style.display='block'; setTimeout(()=>initCropper(),50);
+  });
+  document.querySelectorAll('input[name="ratio"]').forEach(r=>r.addEventListener('change',()=>{
+    if(!cropper) return; if(r.value==='free'){cropper.setAspectRatio(NaN);}else{cropper.setAspectRatio(parseFloat(r.value));}
+  }));
+  document.getElementById('btn-zoom-in').addEventListener('click',()=>{if(cropper) cropper.zoom(0.1);});
+  document.getElementById('btn-zoom-out').addEventListener('click',()=>{if(cropper) cropper.zoom(-0.1);});
+  document.getElementById('btn-rotate').addEventListener('click',()=>{if(cropper) cropper.rotate(90);});
+  document.getElementById('btn-reset').addEventListener('click',()=>{if(cropper) cropper.reset();});
+  document.getElementById('btn-apply').addEventListener('click',()=>{
+    if(!cropper){hiddenField.value='';finalPreview.removeAttribute('src');return;}
+    let w=1200,h=1200;
+    const ar=cropper.options.aspectRatio;
+    if(!isNaN(ar)){ if(ar>=1){h=Math.round(w/ar);} else {w=Math.round(h*ar);} }
+    const dataUrl=cropper.getCroppedCanvas({width:w,height:h,imageSmoothingQuality:'high'}).toDataURL('image/jpeg',0.9);
+    hiddenField.value=dataUrl; finalPreview.src=dataUrl;
+  });
+  document.getElementById('servico-form').addEventListener('submit',ev=>{
+    if(!hiddenField.value && cropper){
+      const dataUrl=cropper.getCroppedCanvas({width:1200,height:1200,imageSmoothingQuality:'high'}).toDataURL('image/jpeg',0.9);
+      hiddenField.value=dataUrl; finalPreview.src=dataUrl;
+    }
+  });
+</script>
 {% endblock %}

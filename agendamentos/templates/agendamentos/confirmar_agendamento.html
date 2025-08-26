@@ -2,107 +2,173 @@
 
 {% block content %}
 <div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-7">
-            <div class="card shadow-sm" style="border-radius: 15px;">
-                <div class="card-body p-4 p-lg-5">
-                    <h2 class="card-title text-center mb-4" style="color: #5d4a7b; font-weight: 300;">Confirmar Agendamento</h2>
-                    
-                    <div class="alert alert-light" role="alert" style="background-color: #f8f9fa; border-left: 4px solid #c9b7e4; border-radius: 8px;">
-                        <h5 class="alert-heading" style="color: #5d4a7b;">{{ servico.nome }}</h5>
-                        <p class="mb-0"><strong>Data e Hora:</strong> {{ data_hora|date:"d/m/Y \à\s H:i" }}</p>
-                    </div>
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-7">
+      <div class="card shadow-sm" style="border-radius: 15px;">
+        <div class="card-body p-4 p-lg-5">
+          <h2 class="card-title text-center mb-4" style="color: #5d4a7b; font-weight: 300;">
+            Confirmar Agendamento
+          </h2>
 
-                    <form method="post" class="mt-4" novalidate>
-                        {% csrf_token %}
-                        
-                        <!-- Opções de Seleção -->
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="cliente_origem" id="cliente_existente_radio" value="existente" {% if not form.errors %}checked{% endif %}>
-                            <label class="form-check-label" for="cliente_existente_radio">Selecionar Cliente Existente</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="cliente_origem" id="novo_cliente_radio" value="novo" {% if form.errors %}checked{% endif %}>
-                            <label class="form-check-label" for="novo_cliente_radio">Cadastrar Nova Cliente</label>
-                        </div>
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
 
-                        <!-- Seção Cliente Existente -->
-                        <div id="secao_cliente_existente" class="mt-3">
-                            <label for="cliente_select" class="form-label" style="color: #555;">Selecione a Cliente:</label>
-                            <select name="cliente_id" id="cliente_select" class="form-select form-select-lg">
-                                <option value="" disabled selected>Escolha uma cliente...</option>
-                                {% for cliente in clientes %}
-                                    <option value="{{ cliente.id }}">{{ cliente.nome }} - ({{ cliente.telefone }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <!-- Seção Novo Cliente (inicialmente oculta) -->
-                        <div id="secao_novo_cliente" class="mt-3" style="display: none;">
-                            {% for field in form %}
-                                <div class="mb-3">
-                                    {{ field.label_tag }}
-                                    <input type="{{ field.field.widget.input_type }}" 
-                                           name="{{ field.name }}" 
-                                           id="{{ field.id_for_label }}" 
-                                           class="form-control {% if field.errors %}is-invalid{% endif %}"
-                                           value="{{ field.value|default:'' }}">
-                                    {% if field.help_text %}
-                                        <small class="form-text text-muted">{{ field.help_text }}</small>
-                                    {% endif %}
-                                    {% for error in field.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ error }}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            {% endfor %}
-                        </div>
-
-                        <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-lg text-white" style="background-color: #a389cc; border-radius: 8px;">Confirmar Agendamento</button>
-                            <a href="{% url 'agendamentos:painel' %}" class="btn btn-outline-secondary" style="border-radius: 8px;">Cancelar</a>
-                        </div>
-                    </form>
-                </div>
+          {% if error_message %}
+            <div class="alert alert-danger" style="border-left: 4px solid #d44; border-radius: 8px;">
+              <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
             </div>
+          {% endif %}
+
+          <div class="alert alert-light" role="alert" style="background-color: #f8f9fa; border-left: 4px solid #c9b7e4; border-radius: 8px;">
+            <h5 class="alert-heading" style="color: #5d4a7b;">{{ servico.nome }}</h5>
+            <p class="mb-0"><strong>Data e Hora:</strong> {{ data_hora|date:"d/m/Y \\à\\s H:i" }}</p>
+          </div>
+
+          <form method="post" class="mt-4" id="confirm-form" novalidate>
+            {% csrf_token %}
+
+            <!-- Opções de Seleção -->
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="cliente_origem" id="cliente_existente_radio" value="existente" {% if not form.errors %}checked{% endif %}>
+              <label class="form-check-label" for="cliente_existente_radio">Selecionar Cliente Existente</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="cliente_origem" id="novo_cliente_radio" value="novo" {% if form.errors %}checked{% endif %}>
+              <label class="form-check-label" for="novo_cliente_radio">Cadastrar Nova Cliente</label>
+            </div>
+
+            <!-- Seção Cliente Existente -->
+            <div id="secao_cliente_existente" class="mt-3">
+              <label for="cliente_select" class="form-label" style="color: #555;">Selecione a Cliente:</label>
+              <select name="cliente_id" id="cliente_select" class="form-select form-select-lg">
+                <option value="" selected>Escolha uma cliente...</option>
+                {% for cliente in clientes %}
+                  <option value="{{ cliente.id }}">{{ cliente.nome }} - ({{ cliente.telefone }})</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Seção Novo Cliente (oculta inicialmente) -->
+            <div id="secao_novo_cliente" class="mt-3" style="display: none;">
+              <!-- Campos manuais pra garantir ids/names padrões do Django -->
+              <div class="mb-3">
+                <label for="id_nome" class="form-label">Nome</label>
+                <input type="text" name="nome" id="id_nome" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label for="id_email" class="form-label">Email</label>
+                <input type="email" name="email" id="id_email" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label for="id_telefone" class="form-label">Telefone</label>
+                <input type="text" name="telefone" id="id_telefone" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label for="id_cpf" class="form-label">CPF</label>
+                <input type="text" name="cpf" id="id_cpf" class="form-control">
+              </div>
+            </div>
+
+            <div class="d-grid gap-2 mt-4">
+              <button type="submit" class="btn btn-lg text-white" style="background-color: #a389cc; border-radius: 8px;">Confirmar Agendamento</button>
+              <a href="{% url 'agendamentos:painel' %}" class="btn btn-outline-secondary" style="border-radius: 8px;">Cancelar</a>
+            </div>
+          </form>
+
+          <!-- Aviso de validação no cliente -->
+          <div id="js-warn" class="alert alert-warning mt-3 d-none">
+            Preencha os campos obrigatórios para continuar.
+          </div>
+
         </div>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const radioExistente = document.getElementById('cliente_existente_radio');
-        const radioNovo = document.getElementById('novo_cliente_radio');
-        const secaoExistente = document.getElementById('secao_cliente_existente');
-        const secaoNovo = document.getElementById('secao_novo_cliente');
-        const selectCliente = document.getElementById('cliente_select');
-        const formNovoClienteInputs = secaoNovo.querySelectorAll('input');
+document.addEventListener('DOMContentLoaded', function() {
+  const radioExistente   = document.getElementById('cliente_existente_radio');
+  const radioNovo        = document.getElementById('novo_cliente_radio');
+  const secaoExistente   = document.getElementById('secao_cliente_existente');
+  const secaoNovo        = document.getElementById('secao_novo_cliente');
+  const selectCliente    = document.getElementById('cliente_select');
+  const warn             = document.getElementById('js-warn');
+  const form             = document.getElementById('confirm-form');
 
-        function toggleSections() {
-            if (radioExistente.checked) {
-                secaoExistente.style.display = 'block';
-                selectCliente.required = true;
-                secaoNovo.style.display = 'none';
-                formNovoClienteInputs.forEach(input => input.required = false);
-            } else {
-                secaoExistente.style.display = 'none';
-                selectCliente.required = false;
-                secaoNovo.style.display = 'block';
-                // Define os campos do novo cliente como obrigatórios
-                document.getElementById('id_nome').required = true;
-                document.getElementById('id_email').required = true;
-                document.getElementById('id_cpf').required = true;
-            }
-        }
+  const novoInputs = {
+    nome:     document.getElementById('id_nome'),
+    email:    document.getElementById('id_email'),
+    telefone: document.getElementById('id_telefone'),
+    cpf:      document.getElementById('id_cpf'),
+  };
 
-        radioExistente.addEventListener('change', toggleSections);
-        radioNovo.addEventListener('change', toggleSections);
-        
-        // Inicia o estado correto ao carregar a página
-        toggleSections();
-    });
+  function setAttrs(el, {required=null, disabled=null}) {
+    if (required !== null) el.required = !!required;
+    if (disabled !== null) el.disabled = !!disabled;
+  }
+
+  function toggleSections() {
+    if (radioExistente.checked) {
+      // Mostrar existente
+      secaoExistente.style.display = 'block';
+      // Esconder novo
+      secaoNovo.style.display = 'none';
+
+      // Regras de obrigatoriedade
+      setAttrs(selectCliente, {required: true, disabled: false});
+      setAttrs(novoInputs.nome,     {required: false, disabled: true});
+      setAttrs(novoInputs.email,    {required: false, disabled: true});
+      setAttrs(novoInputs.telefone, {required: false, disabled: true});
+      setAttrs(novoInputs.cpf,      {required: false, disabled: true});
+    } else {
+      // Mostrar novo
+      secaoExistente.style.display = 'none';
+      secaoNovo.style.display = 'block';
+
+      // Regras de obrigatoriedade
+      setAttrs(selectCliente, {required: false, disabled: true});
+      setAttrs(novoInputs.nome,     {required: true, disabled: false});
+      setAttrs(novoInputs.email,    {required: true, disabled: false});
+      setAttrs(novoInputs.telefone, {required: false, disabled: false});
+      setAttrs(novoInputs.cpf,      {required: true, disabled: false});
+    }
+    hideWarn();
+  }
+
+  function hideWarn(){ if(!warn.classList.contains('d-none')) warn.classList.add('d-none'); }
+  function showWarn(){ warn.classList.remove('d-none'); }
+
+  radioExistente.addEventListener('change', toggleSections);
+  radioNovo.addEventListener('change', toggleSections);
+  toggleSections(); // estado inicial
+
+  // Failsafe: valida no submit antes do navegador bloquear silenciosamente
+  form.addEventListener('submit', function(ev) {
+    hideWarn();
+    if (radioExistente.checked) {
+      if (!selectCliente.value) {
+        ev.preventDefault();
+        showWarn();
+        selectCliente.focus();
+      }
+    } else {
+      if (!novoInputs.nome.value.trim() || !novoInputs.email.value.trim() || !novoInputs.cpf.value.trim()) {
+        ev.preventDefault();
+        showWarn();
+        ( !novoInputs.nome.value.trim() ? novoInputs.nome
+          : !novoInputs.email.value.trim() ? novoInputs.email
+          : novoInputs.cpf ).focus();
+      }
+    }
+  });
+});
 </script>
 {% endblock %}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Agendamentos - {{ mes }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 14px; color: #222; }
+        h2 { color: #a67c00; }
+        table { width: 100%; border-collapse: collapse; margin-top: 22px; }
+        th, td { border: 1px solid #d1d1d1; padding: 7px 8px; }
+        th { background: #f5e5be; color: #a67c00; }
+        tr:nth-child(even) { background: #faf8fc; }
+    </style>
+</head>
+<body>
+    <h2>Relatório de Agendamentos - Mês {{ mes }}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Data/Hora</th>
+                <th>Cliente</th>
+                <th>Telefone</th>
+                <th>Serviço</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ag in agendamentos %}
+            <tr>
+                <td>{{ ag.data_hora|date:"d/m/Y H:i" }}</td>
+                <td>{{ ag.cliente.nome }}</td>
+                <td>{{ ag.cliente.telefone }}</td>
+                <td>{{ ag.servico.nome }}</td>
+                <td>{{ ag.status }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align:center;">Sem agendamentos registrados neste mês.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

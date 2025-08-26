@@ -1,0 +1,21 @@
+# Django Gitignore
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+
+# Django
+db.sqlite3
+/staticfiles/
+/media/
+
+# Virtualenv
+venv/
+.env
+
+# IDEs
+.vscode/
+.idea/

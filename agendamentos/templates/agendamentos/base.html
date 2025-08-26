@@ -2,156 +2,168 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BellCilios - Agendamentos</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    
-    <style>
-        /* ESTILOS ATUALIZADOS COM CORES DA MARCA */
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-image: url('{% static "agendamentos/img/estampa 2.png" %}');
-            background-size: cover;
-            background-repeat: no-repeat;
-            background-position: center center;
-            background-attachment: fixed;
-            background-color: #fdfaff;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}BellCilios - Agendamentos{% endblock %}</title>
 
-        /* Cor dourada escura para o texto do logo e links principais */
-        .navbar-brand, .nav-link { 
-            color: #8c6c21 !important; /* Dourado escuro para melhor leitura */
-            font-weight: 500;
-        }
+  <!-- Bootstrap / Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
-        .navbar-brand {
-            font-size: 1.5rem;
-        }
-        
-        /* Botão principal com o tom dourado */
-        .btn-primary-custom { 
-            background-color: #a67c00; /* Dourado */
-            border-color: #a67c00; 
-            color: white; 
-        }
+  <style>
+    :root{
+      --brand:#a67c00;
+      --brand-2:#8c6c21;
+      --bg: #fdfaff;
+    }
+    body{
+      font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background-image: linear-gradient(rgba(253,250,255,.92), rgba(253,250,255,.92)), url("{% static 'agendamentos/img/estampa 2.png' %}");
+      background-size: cover; background-attachment: fixed;
+      color:#222;
+    }
+    a{ text-decoration: none }
 
-        /* Efeito de escurecer o botão ao passar o mouse */
-        .btn-primary-custom:hover { 
-            background-color: #8c6c21; /* Dourado mais escuro */
-            border-color: #8c6c21; 
-        }
+    /* Topbar */
+    .topbar{
+      position: sticky; top:0; z-index: 1030;
+      backdrop-filter: blur(6px);
+      background: rgba(255,255,255,.75);
+      border-bottom: 1px solid #f0e8d9;
+    }
 
-        /* Altera a cor dos títulos principais (h1, h2, h3) para o dourado */
-        h1, h2, h3, h5 {
-            color: #8c6c21; 
-        }
+    /* Sidebar */
+    .sidebar{
+      width: 230px;
+      position: sticky; top:72px; /* abaixo da topbar */
+      height: calc(100dvh - 72px);
+      padding: 1rem;
+      background: #fff;
+      border-right: 1px solid #f0e8d9;
+    }
+    .sidebar .nav-link{
+      color: #444;
+      border-radius: 10px;
+      padding: .55rem .75rem;
+      display: flex; align-items: center; gap:.5rem;
+    }
+    .sidebar .nav-link:hover{ background: #f8f5ef; color: var(--brand-2) }
+    .sidebar .nav-link.active{ background: #fff6e0; color: var(--brand-2); font-weight: 600 }
 
-        /* Altera a cor dos ícones de redes sociais */
-        .social-icons a {
-            color: #a67c00; /* Dourado */
-            font-size: 1.5rem; /* Tamanho dos ícones */
-            margin: 0 10px; /* Espaçamento entre eles */
-            transition: color 0.3s, transform 0.2s;
-        }
+    /* Área principal */
+    .main{
+      padding: 1.5rem;
+    }
 
-        .social-icons a:hover {
-            color: #8c6c21; /* Dourado mais escuro ao passar o mouse */
-            transform: scale(1.1);
-        }
+    /* Botão primário custom */
+    .btn-primary-custom{
+      background-color: var(--brand);
+      border-color: var(--brand);
+      color:#fff;
+    }
+    .btn-primary-custom:hover{
+      background-color: var(--brand-2);
+      border-color: var(--brand-2);
+      color:#fff;
+    }
 
-        /* --- Estilos de Notificação (Toast) --- */
-        .toast-container { z-index: 1090; }
-        .toast { border-radius: .75rem; border: none; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15); }
-        .toast-body { font-size: 1rem; font-weight: 500; }
-        .bg-success { background-color: #5cb85c !important; }
-        .bg-danger { background-color: #d9534f !important; }
-        .bg-warning { background-color: #f0ad4e !important; }
-        .bg-info { background-color: #5bc0de !important; }
-    </style>
-    {% block extra_css %}{% endblock %}
+    /* ===== THUMBS PADRÃO – USADO EM "GERIR SERVIÇOS" ===== */
+    .servico-thumb{
+      width: 140px;      /* largura fixa da célula */
+      height: 105px;     /* 4x3 */
+      object-fit: cover; /* sem distorcer; corta se precisar */
+      border-radius: 10px;
+      display: block;
+    }
+    @media (max-width: 991.98px){
+      .servico-thumb{ width: 120px; height: 90px; }
+    }
+
+    /* Dark mode básico (opcional) */
+    body.dark-mode{
+      background: #16161a !important;
+      color: #e7e7ea;
+    }
+    body.dark-mode .topbar{ background: rgba(22,22,26,.65); border-color:#2b2b31 }
+    body.dark-mode .sidebar{ background:#1f1f26; border-color:#2b2b31 }
+    body.dark-mode .sidebar .nav-link{ color:#d9d9df }
+    body.dark-mode .sidebar .nav-link:hover{ background:#262631; color:#ffe395 }
+    body.dark-mode .sidebar .nav-link.active{ background:#2b2430; color:#ffe395 }
+    body.dark-mode .btn-primary-custom{ background:#b9901e; border-color:#b9901e }
+  </style>
+
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-        <div class="container">
-            <a class="navbar-brand" href="{% if user.is_authenticated %}{% url 'agendamentos:painel' %}{% else %}{% url 'home' %}{% endif %}">
-                <img src="{% static 'agendamentos/img/submarca.png' %}" alt="Logotipo BellCilios" height="40">
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
-                    {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'agendamentos:painel' %}">Painel</a>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                                Gerenciar
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                <li><a class="dropdown-item" href="{% url 'agendamentos:gerir_agendamentos' %}">Agendamentos</a></li>
-                                <li><a class="dropdown-item" href="{% url 'agendamentos:gerir_servicos' %}">Serviços</a></li>
-                                <li><a class="dropdown-item" href="{% url 'agendamentos:gerir_clientes' %}">Clientes</a></li>
-                            </ul>
-                        </li>
-                        <li class="nav-item">
-                            <span class="navbar-text me-3">Olá, {{ user.username }}</span>
-                        </li>
-                        <li class="nav-item">
-                             <form action="{% url 'logout' %}" method="post" class="d-flex">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-secondary btn-sm">Sair</button>
-                            </form>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'lista_servicos' %}">Nossos Serviços</a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{% url 'login' %}" class="btn btn-primary-custom">Login do Administrador</a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </div>
-        </div>
-    </nav>
+  <!-- Topbar -->
+  <nav class="topbar navbar navbar-expand-lg">
+    <div class="container-fluid">
+      <a class="navbar-brand d-flex align-items-center" href="{% url 'agendamentos:painel' %}">
+        <img src="{% static 'agendamentos/img/submarca.png' %}" alt="BellCilios" height="32" class="me-2">
+        <span class="fw-semibold" style="color:var(--brand-2)">BellCilios • Painel</span>
+      </a>
 
-    <main role="main" class="container py-4">
-        {% block content %}{% endblock %}
-    </main>
-
-    <div class="toast-container position-fixed top-0 end-0 p-3">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="toast align-items-center text-white {% if message.tags == 'error' %}bg-danger{% else %}bg-{{ message.tags }}{% endif %} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="d-flex">
-                        <div class="toast-body">{{ message }}</div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                    </div>
-                </div>
-            {% endfor %}
-        {% endif %}
+      <div class="d-flex align-items-center gap-2">
+        <!-- toggle tema -->
+        <button class="btn btn-sm btn-outline-secondary" id="toggle-theme" title="Alternar tema">
+          <i class="bi bi-moon-stars"></i>
+        </button>
+        <!-- logout -->
+        <form action="{% url 'logout' %}" method="post" class="ms-1">
+          {% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger">Sair</button>
+        </form>
+      </div>
     </div>
+  </nav>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Sidebar desktop -->
+      <aside class="col-lg-2 d-none d-lg-block sidebar">
+        <nav class="nav flex-column">
+          <a class="nav-link {% if request.resolver_match.url_name == 'painel' %}active{% endif %}" href="{% url 'agendamentos:painel' %}">
+            <i class="bi bi-house me-2"></i>Painel
+          </a>
+          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'agendamentos:dashboard' %}">
+            <i class="bi bi-bar-chart-line me-2"></i>Dashboard
+          </a>
+          <a class="nav-link {% if request.resolver_match.url_name == 'gerir_agendamentos' %}active{% endif %}" href="{% url 'agendamentos:gerir_agendamentos' %}">
+            <i class="bi bi-calendar-check me-2"></i>Agendamentos
+          </a>
+          <a class="nav-link {% if request.resolver_match.url_name == 'gerir_servicos' %}active{% endif %}" href="{% url 'agendamentos:gerir_servicos' %}">
+            <i class="bi bi-gear me-2"></i>Serviços
+          </a>
+          <a class="nav-link {% if request.resolver_match.url_name == 'gerir_clientes' %}active{% endif %}" href="{% url 'agendamentos:gerir_clientes' %}">
+            <i class="bi bi-people me-2"></i>Clientes
+          </a>
+        </nav>
+      </aside>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', (event) => {
-            const toastElList = [].slice.call(document.querySelectorAll('.toast'));
-            toastElList.map(function (toastEl) {
-                const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
-                toast.show();
-                return toast;
-            });
-        });
-    </script>
-    
-    {% block extra_js %}{% endblock %}
+      <!-- Conteúdo -->
+      <main class="col-lg-10 main">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
 
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Toggle tema leve/escuro com persistência
+    (function(){
+      const btn = document.getElementById('toggle-theme');
+      const saved = localStorage.getItem('theme') || 'light';
+      if(saved === 'dark') document.body.classList.add('dark-mode');
+      btn?.addEventListener('click', ()=>{
+        document.body.classList.toggle('dark-mode');
+        const mode = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+        localStorage.setItem('theme', mode);
+      });
+    })();
+  </script>
+
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

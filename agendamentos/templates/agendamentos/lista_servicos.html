@@ -1,41 +1,120 @@
-{% extends "agendamentos/base_publica.html" %}
+{% extends 'agendamentos/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+  .font-serif-display{ font-family:'Playfair Display',serif; }
+
+  .service-card{ transition:transform .3s, box-shadow .3s; border:1px solid #f0e8d9; }
+  .service-card:hover{ transform:translateY(-6px); box-shadow:0 12px 24px rgba(140,108,33,.15)!important; }
+
+  .service-img{
+    width:100%;
+    height:220px;
+    object-fit:cover;
+    object-position:center;
+    display:block;
+  }
+
+  .btn-outline-custom{ color:#8c6c21; border-color:#8c6c21; font-weight:500; }
+  .btn-outline-custom:hover{ background:#8c6c21; color:#fff; }
+
+  body.dark-mode .service-card{ background:#2a2a45; border-color:#574b2b; }
+  body.dark-mode .btn-outline-custom{ color:#ffe395; border-color:#ffe395; }
+  body.dark-mode .btn-outline-custom:hover{ background:#ffe395; color:#232525; }
+
+  #fotoModal .modal-dialog{ max-width:95vw; }
+  #fotoModal .modal-content{ background: rgba(0,0,0,.85); border-radius:12px; border:0; }
+  #fotoModal .modal-body{ padding:0; display:flex; align-items:center; justify-content:center; }
+  #fotoModal img{ max-width:92vw; max-height:86vh; object-fit:contain; }
+  #fotoModal .btn-close{ position:absolute; right:10px; top:10px; filter:invert(1); }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4 py-5">
-    <div class="text-center mb-5">
-        <h1 class="display-5" style="color: #5d4a7b; font-weight: 300;">Nossos Serviços</h1>
-        <p class="lead text-muted">Conheça os tratamentos que oferecemos para realçar sua beleza.</p>
-    </div>
+<div class="container py-5">
+  <div class="text-center mb-5">
+    <h1 class="display-4 font-serif-display">Nossos Serviços</h1>
+    <p class="lead text-muted">A arte de realçar a sua beleza natural está nos detalhes.</p>
+  </div>
 
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        {% for servico in servicos %}
-        <div class="col">
-            <div class="card h-100 shadow-sm" style="border-radius: 15px; border: none;">
-                {% if servico.imagem %}
-                    <img src="{{ servico.imagem.url }}" class="card-img-top" alt="{{ servico.nome }}" style="border-top-left-radius: 15px; border-top-right-radius: 15px; object-fit: cover; max-height: 200px;">
-                {% endif %}
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title" style="color: #a389cc;">{{ servico.nome }}</h5>
-                    <p class="card-text text-muted flex-grow-1">{{ servico.descricao|default:"Descrição não disponível." }}</p>
-                    <div class="mt-3">
-                        <p class="mb-1"><strong>Duração:</strong> {{ servico.duracao }} minutos</p>
-                        <p class="mb-2"><strong>Preço:</strong> R$ {{ servico.preco|floatformat:2 }}</p>
-                    </div>
-                </div>
-            </div>
-            
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for servico in servicos %}
+    <div class="col">
+      <div class="card h-100 shadow-sm service-card">
+
+        {% if servico.imagem %}
+          <img src="{{ servico.imagem.url }}"
+               alt="{{ servico.nome }}"
+               class="card-img-top service-img js-open-full"
+               data-fullsrc="{{ servico.imagem.url }}">
+        {% else %}
+          <img src="{% static 'agendamentos/img/placeholder.png' %}"
+               alt="Sem imagem"
+               class="card-img-top service-img js-open-full"
+               data-fullsrc="{% static 'agendamentos/img/placeholder.png' %}">
+        {% endif %}
+
+        <div class="card-body d-flex flex-column">
+          <h5 class="card-title h4 font-serif-display">{{ servico.nome }}</h5>
+          <p class="card-text text-muted small flex-grow-1">{{ servico.descricao }}</p>
+          <div class="d-flex justify-content-between align-items-center mt-2">
+            <span><i class="bi bi-clock me-1"></i>{{ servico.duracao }} min</span>
+            <span class="fs-5 fw-bold" style="color:#5d4a7b;">R$ {{ servico.preco }}</span>
+          </div>
         </div>
-        {% empty %}
-        <div class="col-12">
-            <p class="text-center text-muted">Nenhum serviço cadastrado no momento.</p>
+
+        <div class="card-footer bg-transparent border-0 pb-3">
+          <a class="btn btn-outline-custom rounded-pill w-100"
+             href="https://wa.me/5571991806312?text={{ 'Olá! Gostaria de agendar o serviço ' |add:servico.nome|urlencode }}"
+             target="_blank">
+            Agendar Serviço
+          </a>
         </div>
-        {% endfor %}
-    </div>
 
-    <div class="text-center mt-5 p-4 rounded" style="background-color: #f8f9fa;">
-        <p class="h5" style="color: #5d4a7b;">Gostou dos nossos serviços?</p>
-        <p class="text-muted">Agendamentos são realizados diretamente pela nossa profissional, Rebeca, para garantir um atendimento exclusivo.</p>
+      </div>
     </div>
-
+    {% empty %}
+      <div class="col-12">
+        <div class="alert alert-info">Nenhum serviço disponível no momento.</div>
+      </div>
+    {% endfor %}
+  </div>
 </div>
+
+<!-- Modal de foto -->
+<div class="modal fade" id="fotoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-body">
+        <img id="modal-img" alt="Foto do serviço">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function(){
+    const modalEl  = document.getElementById('fotoModal');
+    const modalImg = document.getElementById('modal-img');
+    const bsModal  = new bootstrap.Modal(modalEl);
+
+    document.querySelectorAll('.js-open-full').forEach(img=>{
+      img.addEventListener('click', (e)=>{
+        e.preventDefault();
+        modalImg.src = img.dataset.fullsrc || img.src;
+        bsModal.show();
+      });
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', ()=>{ modalImg.removeAttribute('src'); });
+  });
+</script>
 {% endblock %}

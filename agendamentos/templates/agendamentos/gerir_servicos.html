@@ -1,60 +1,189 @@
-<!-- agendamentos/templates/agendamentos/gerir_servicos.html -->
 {% extends 'agendamentos/base.html' %}
+{% load static %}
 
 {% block title %}Gerir Serviços{% endblock %}
 
-{% block content %}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="mb-0">Gerir Serviços</h1>
-        <a href="{% url 'agendamentos:criar_servico' %}" class="btn btn-primary">Adicionar Novo Serviço</a>
-    </div>
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+<style>
+  .thumb-box{width:158px;height:158px;border-radius:10px;overflow:hidden;border:1px solid #eadfc4;background:#fff}
+  .thumb-box img{width:100%;height:100%;object-fit:cover;display:block}
+  .table td,.table th{vertical-align:middle}
+  .img-wrap{border:1px dashed #d9c9a5;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;min-height:360px}
+  #cropper-image{max-width:100%;display:none}
+</style>
+{% endblock %}
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
-    
-    <div class="card">
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th scope="col">Imagem</th>
-                        <th scope="col">Nome</th>
-                        <th scope="col">Duração (min)</th>
-                        <th scope="col">Preço</th>
-                        <th scope="col">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for servico in servicos %}
-                    <tr>
-                        <td>
-                            {% if servico.imagem %}
-                                <img src="{{ servico.imagem.url }}" alt="{{ servico.nome }}" style="max-width: 80px; height: auto;">
-                            {% else %}
-                                <span class="text-muted">Sem imagem</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ servico.nome }}</td>
-                        <td>{{ servico.duracao }}</td>
-                        <td>R$ {{ servico.preco }}</td>
-                        <td>
-                            <a href="{% url 'agendamentos:editar_servico' servico.id %}" class="btn btn-secondary btn-sm">Editar</a>
-                            <a href="{% url 'agendamentos:excluir_servico' servico.id %}" class="btn btn-danger btn-sm">Excluir</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" class="text-center">Nenhum serviço cadastrado.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>                       
-            </table>
-        </div>
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="mb-0">Gerir Serviços</h1>
+  <a href="{% url 'agendamentos:criar_servico' %}" class="btn btn-primary">Adicionar Novo Serviço</a>
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      {{ message }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
+  {% endfor %}
+{% endif %}
+
+<div class="card">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Imagem</th>
+            <th>Nome</th>
+            <th>Duração (min)</th>
+            <th>Preço</th>
+            <th style="width:280px">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for servico in servicos %}
+          <tr>
+            <td>
+              <div class="thumb-box">
+                {% if servico.imagem %}
+                  <img src="{{ servico.imagem.url }}" alt="{{ servico.nome }}">
+                {% else %}
+                  <img src="{% static 'agendamentos/img/placeholder.png' %}" alt="Sem imagem">
+                {% endif %}
+              </div>
+              <div class="mt-2 d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm js-open-crop"
+                        data-id="{{ servico.id }}"
+                        data-src="{% if servico.imagem %}{{ servico.imagem.url }}{% endif %}">
+                  Editar imagem
+                </button>
+                {% if servico.imagem %}
+                <form method="post" action="{% url 'agendamentos:remover_imagem_servico' servico.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-warning btn-sm"
+                          onclick="return confirm('Remover a imagem deste serviço?');">
+                    Remover
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+            <td class="fs-5">{{ servico.nome }}</td>
+            <td>{{ servico.duracao }}</td>
+            <td>R$ {{ servico.preco }}</td>
+            <td>
+              <a href="{% url 'agendamentos:editar_servico' servico.id %}" class="btn btn-secondary btn-sm">Editar</a>
+              <a href="{% url 'agendamentos:excluir_servico' servico.id %}" class="btn btn-danger btn-sm"
+                 onclick="return confirm('Deseja realmente excluir este serviço?');">Excluir</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center">Nenhum serviço cadastrado.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# MODAL de recorte #}
+<div class="modal fade" id="cropModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <form id="cropForm" method="post" action="#" class="needs-validation" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="cropped_image_data" id="cropped_image_data">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar imagem do serviço</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-lg-9">
+              <div class="img-wrap">
+                <img id="cropper-image" alt="Imagem para recorte">
+              </div>
+            </div>
+            <div class="col-lg-3">
+              <div class="mb-3">
+                <div class="btn-group w-100" role="group">
+                  <input type="radio" class="btn-check" name="ratio" id="ratio11" value="1" checked>
+                  <label class="btn btn-outline-secondary" for="ratio11">1:1</label>
+                  <input type="radio" class="btn-check" name="ratio" id="ratio32" value="1.5">
+                  <label class="btn btn-outline-secondary" for="ratio32">3:2</label>
+                  <input type="radio" class="btn-check" name="ratio" id="ratiofree" value="free">
+                  <label class="btn btn-outline-secondary" for="ratiofree">Livre</label>
+                </div>
+              </div>
+              <div class="d-grid gap-2">
+                <button type="button" class="btn btn-outline-secondary" id="btn-zoom-in">Zoom +</button>
+                <button type="button" class="btn btn-outline-secondary" id="btn-zoom-out">Zoom −</button>
+                <button type="button" class="btn btn-outline-secondary" id="btn-rotate">Rotacionar 90°</button>
+                <button type="button" class="btn btn-outline-secondary" id="btn-reset">Resetar</button>
+              </div>
+              <hr>
+              <p class="small text-muted mb-0">
+                Dica: arraste para posicionar e use o zoom. O recorte é salvo imediatamente.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Salvar recorte</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+<script>
+  const cropModalEl = document.getElementById('cropModal');
+  const cropModal = new bootstrap.Modal(cropModalEl);
+  const cropImg = document.getElementById('cropper-image');
+  const form = document.getElementById('cropForm');
+  const hidden = document.getElementById('cropped_image_data');
+  let cropper=null, currentId=null;
+
+  const actionTemplate = "{% url 'agendamentos:recortar_imagem_servico' 0 %}";
+
+  function initCropper(){
+    if(cropper){cropper.destroy();cropper=null;}
+    cropper=new Cropper(cropImg,{viewMode:1,dragMode:'move',aspectRatio:1,autoCropArea:1,background:false,movable:true,zoomable:true,responsive:true,checkCrossOrigin:false});
+  }
+
+  document.querySelectorAll('.js-open-crop').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      currentId = btn.dataset.id;
+      const src = btn.dataset.src;
+      if(!src){ alert('Este serviço ainda não tem imagem. Use "Editar" para enviar uma.'); return; }
+      cropImg.src = src;
+      cropImg.style.display = 'block';
+      setTimeout(()=>initCropper(),50);
+      form.action = actionTemplate.replace('/0/','/'+currentId+'/');
+      hidden.value='';
+      cropModal.show();
+    })
+  });
+
+  document.getElementById('btn-zoom-in').addEventListener('click',()=>{ if(cropper) cropper.zoom(0.1); });
+  document.getElementById('btn-zoom-out').addEventListener('click',()=>{ if(cropper) cropper.zoom(-0.1); });
+  document.getElementById('btn-rotate').addEventListener('click',()=>{ if(cropper) cropper.rotate(90); });
+  document.getElementById('btn-reset').addEventListener('click',()=>{ if(cropper) cropper.reset(); });
+
+  document.querySelectorAll('#cropModal input[name="ratio"]').forEach(r=>r.addEventListener('change',()=>{
+    if(!cropper) return; if(r.value==='free'){cropper.setAspectRatio(NaN);} else {cropper.setAspectRatio(parseFloat(r.value));}
+  }));
+
+  form.addEventListener('submit', (ev)=>{
+    if(!cropper){ev.preventDefault();return;}
+    const canvas=cropper.getCroppedCanvas({width:1200,height:1200,imageSmoothingQuality:'high'});
+    hidden.value=canvas.toDataURL('image/jpeg',0.9);
+  });
+</script>
 {% endblock %}

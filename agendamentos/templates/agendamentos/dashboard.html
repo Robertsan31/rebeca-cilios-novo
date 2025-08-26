@@ -1,0 +1,154 @@
+{% extends "agendamentos/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+  .kpi-card{border:none;border-radius:18px;box-shadow:0 10px 30px rgba(200,180,90,.10)}
+  .kpi-card .value{font-size:2rem;font-weight:700;color:#8c6c21}
+  .kpi-card .label{color:#6b6b6b}
+
+  .chart-card{border-radius:18px;border:1.5px solid #ecd7b3;box-shadow:0 10px 30px rgba(200,180,90,.10)}
+  body.dark-mode .chart-card{background:#232325;border-color:#574b2b}
+  body.dark-mode .kpi-card{background:#232325;color:#ffe395}
+
+  .btn-range{border-radius:9999px}
+  .btn-range.active{background:#a67c00;border-color:#a67c00;color:#fff}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="display-6 fw-light">Dashboard</h1>
+    <p class="lead text-muted mb-0">Resumo dos atendimentos e agendamentos.</p>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card kpi-card p-3">
+      <div class="value">{{ agendamentos_hoje }}</div>
+      <div class="label">Agendamentos Hoje</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi-card p-3">
+      <div class="value">{{ agendamentos_semana }}</div>
+      <div class="label">Esta Semana</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi-card p-3">
+      <div class="value">{{ agendamentos_mes }}</div>
+      <div class="label">Este Mês</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi-card p-3">
+      <div class="value">{{ agendamentos_cancelados }}</div>
+      <div class="label">Cancelados (mês)</div>
+    </div>
+  </div>
+</div>
+
+<!-- Gráfico + Seletor -->
+<div class="card chart-card p-3 mb-4">
+  <div class="d-flex justify-content-between align-items-center">
+    <h5 class="m-0" style="color:#8c6c21;">Agendamentos por Dia</h5>
+    <div class="btn-group" role="group" aria-label="Intervalo">
+      <button class="btn btn-outline-secondary btn-range" data-days="7">7 dias</button>
+      <button class="btn btn-outline-secondary btn-range active" data-days="30">30 dias</button>
+      <button class="btn btn-outline-secondary btn-range" data-days="90">90 dias</button>
+    </div>
+  </div>
+  <div class="mt-3">
+    <canvas id="graficoAgendamentos" style="height:360px"></canvas>
+  </div>
+</div>
+
+<!-- Tabela simples (mantendo sua tabela_grafico) -->
+<div class="card p-3">
+  <h6 class="mb-3">Tabela (últimos 7 dias)</h6>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Confirmados</th>
+          <th>Realizados</th>
+          <th>Cancelados</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for linha in tabela_grafico %}
+        <tr>
+          <td>{{ linha.data }}</td>
+          <td>{{ linha.confirmados }}</td>
+          <td>{{ linha.realizados }}</td>
+          <td>{{ linha.cancelados }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-muted">Sem dados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const ctx = document.getElementById('graficoAgendamentos').getContext('2d');
+  let chart;
+
+  const makeDS = (label, data, color) => ({
+    label, data, tension:.35, fill:false, borderColor: color, borderWidth:2, pointRadius:2
+  });
+
+  async function load(days=30){
+    const url = "{% url 'agendamentos:stats' %}?days="+days;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const datasets = [
+      makeDS('Total',      data.series.total,      '#5d4a7b'),
+      makeDS('Confirmado', data.series.confirmado, '#28a745'),
+      makeDS('Realizado',  data.series.realizado,  '#0d6efd'),
+      makeDS('Cancelado',  data.series.cancelado,  '#dc3545'),
+      makeDS('Pendente',   data.series.pendente,   '#f0ad4e'),
+    ];
+
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: data.labels, datasets },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales: {
+          x: { grid:{ display:false } },
+          y: { beginAtZero:true, ticks:{ precision:0 } }
+        },
+        plugins: {
+          legend: { display:true },
+          tooltip: { mode:'index', intersect:false }
+        }
+      }
+    });
+  }
+
+  // seletor
+  document.querySelectorAll('.btn-range').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      document.querySelectorAll('.btn-range').forEach(b=>b.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+      load(parseInt(e.currentTarget.dataset.days,10));
+    });
+  });
+
+  load(30); // default
+});
+</script>
+{% endblock %}
