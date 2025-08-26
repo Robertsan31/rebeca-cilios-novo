@@ -111,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function load(days=30){
     const url = "{% url 'agendamentos:stats' %}?days="+days;
     const res = await fetch(url);
+    if(!res.ok){ console.error('Falha na API de stats'); return; }
     const data = await res.json();
 
     const datasets = [
@@ -139,7 +140,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // seletor
   document.querySelectorAll('.btn-range').forEach(btn=>{
     btn.addEventListener('click', (e)=>{
       document.querySelectorAll('.btn-range').forEach(b=>b.classList.remove('active'));

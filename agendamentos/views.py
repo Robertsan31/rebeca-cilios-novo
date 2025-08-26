@@ -19,6 +19,10 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods
 
+# >>> IMPORTS para stats <<<
+from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
+
 from .forms import ClienteForm, ServicoForm
 from .models import Cliente, Servico, Agendamento
 
@@ -140,43 +144,100 @@ def dashboard_export_pdf(request: HttpRequest) -> HttpResponse:
 
 
 # -----------------------------------------------------------------------------
-# ESTATÍSTICAS (stub)
+# ESTATÍSTICAS (implementado)
 # -----------------------------------------------------------------------------
 @require_GET
 @login_required
 def stats(request: HttpRequest) -> JsonResponse:
-    days = int(request.GET.get("days", 7))
+    """
+    Retorna séries agregadas por dia dentro da janela solicitada (days=7/30/90...).
+    Shape do JSON compatível com o dashboard.html.
+    """
+    days = int(request.GET.get("days", 30))
+    if days < 1:
+        days = 7
+
+    tz = timezone.get_current_timezone()
+    hoje_local = timezone.localdate()
+    inicio = hoje_local - timedelta(days=days - 1)
+
+    # Agregação por dia e por status (1 query)
+    agregados = (
+        Agendamento.objects
+        .filter(data_hora__date__gte=inicio, data_hora__date__lte=hoje_local)
+        .annotate(dia=TruncDate("data_hora", tzinfo=tz))
+        .values("dia")
+        .annotate(
+            total=Count("id"),
+            confirmado=Count("id", filter=Q(status="Confirmado")),
+            realizado=Count("id", filter=Q(status="Realizado")),
+            cancelado=Count("id", filter=Q(status="Cancelado")),
+            pendente=Count("id", filter=Q(status="Pendente")),
+        )
+        .order_by("dia")
+    )
+
+    por_dia = {row["dia"]: row for row in agregados}
+
     labels = []
-    base = timezone.localdate()
+    serie_total, serie_conf, serie_real, serie_canc, serie_pend = [], [], [], [], []
     for i in range(days):
-        labels.append((base - timedelta(days=days - 1 - i)).strftime("%d/%m"))
-    series = {
-        "total": [0] * days,
-        "confirmado": [0] * days,
-        "realizado": [0] * days,
-        "cancelado": [0] * days,
-        "pendente": [0] * days,
-    }
-    return JsonResponse({"labels": labels, "series": series})
+        d = inicio + timedelta(days=i)
+        labels.append(d.strftime("%d/%m"))
+        row = por_dia.get(d)
+        if row:
+            serie_total.append(row["total"])
+            serie_conf.append(row["confirmado"])
+            serie_real.append(row["realizado"])
+            serie_canc.append(row["cancelado"])
+            serie_pend.append(row["pendente"])
+        else:
+            serie_total.append(0)
+            serie_conf.append(0)
+            serie_real.append(0)
+            serie_canc.append(0)
+            serie_pend.append(0)
+
+    return JsonResponse({
+        "labels": labels,
+        "series": {
+            "total": serie_total,
+            "confirmado": serie_conf,
+            "realizado": serie_real,
+            "cancelado": serie_canc,
+            "pendente": serie_pend,
+        },
+    })
 
 
 # -----------------------------------------------------------------------------
-# API do calendário (stubs)
+# API do calendário
 # -----------------------------------------------------------------------------
 @require_GET
 @login_required
 def api_agendamentos(request: HttpRequest) -> JsonResponse:
     """
-    Retorna eventos pro FullCalendar.
+    Retorna eventos pro FullCalendar (com cores por status).
+    Faz parsing de start/end em ISO se vierem presentes.
     """
     start = request.GET.get("start")
     end = request.GET.get("end")
 
     qs = Agendamento.objects.select_related("cliente", "servico")
+
+    # (opcional) interpretar ISO-8601
     if start:
-        qs = qs.filter(data_hora__gte=start)
+        try:
+            start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            qs = qs.filter(data_hora__gte=start_dt)
+        except ValueError:
+            pass
     if end:
-        qs = qs.filter(data_hora__lte=end)
+        try:
+            end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+            qs = qs.filter(data_hora__lte=end_dt)
+        except ValueError:
+            pass
 
     eventos = []
     for a in qs:
@@ -361,7 +422,9 @@ def gerir_agendamentos(request: HttpRequest) -> HttpResponse:
     inicio = timezone.make_aware(datetime(dia.year, dia.month, dia.day, 0, 0))
     fim = inicio + timedelta(days=1)
     agendamentos = (
-        Agendamento.objects.select_related("cliente", "servico").filter(data_hora__gte=inicio, data_hora__lt=fim).order_by("data_hora")
+        Agendamento.objects.select_related("cliente", "servico")
+        .filter(data_hora__gte=inicio, data_hora__lt=fim)
+        .order_by("data_hora")
     )
 
     return render(
