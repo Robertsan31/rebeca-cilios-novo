@@ -1,4 +1,3 @@
-
 {% extends "agendamentos/base_publica.html" %}
 {% load static %}
 
@@ -65,16 +64,12 @@ document.addEventListener("DOMContentLoaded",function(){
     #home-page .hero-curve .fill-next{fill:#fdfaff}
 
     /* Controles do vídeo */
-    .video-controls{
-      position:absolute; right:14px; bottom:14px; z-index:3;
-      display:flex; gap:8px;
-    }
+    .video-controls{ position:absolute; right:14px; bottom:14px; z-index:3; display:flex; gap:8px; }
     .video-controls .vc-btn{
       display:inline-flex; align-items:center; justify-content:center;
       width:42px; height:42px; border-radius:999px; border:1px solid rgba(255,255,255,.7);
       color:#fff; background:rgba(0,0,0,.25);
-      backdrop-filter: blur(2px);
-      cursor:pointer; transition:transform .15s, background .15s, border-color .15s;
+      backdrop-filter: blur(2px); cursor:pointer; transition:transform .15s, background .15s, border-color .15s;
     }
     .video-controls .vc-btn:hover{ transform:scale(1.05); background:rgba(0,0,0,.35); border-color:#fff; }
     .video-controls .vc-btn i{ font-size:18px; line-height:1; }
@@ -101,6 +96,34 @@ document.addEventListener("DOMContentLoaded",function(){
       #home-page .hero{ min-height:66vh }
       #home-page .hero-curve svg{ height:80px }
     }
+
+    /* ===== BOTÕES FLUTUANTES ===== */
+    .floating-social {
+      position: fixed;
+      left: 18px;   /* AGORA NO CANTO ESQUERDO */
+      bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 1050;
+    }
+    .floating-social a {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: #a38916;
+      color: #fff;
+      font-size: 22px;
+      box-shadow: 0 4px 10px rgba(0,0,0,.25);
+      transition: transform .2s, background .2s;
+    }
+    .floating-social a:hover {
+      transform: scale(1.1);
+      background: #866d12;
+      color:#fff;
+    }
   </style>
 
   <!-- HERO -->
@@ -116,12 +139,8 @@ document.addEventListener("DOMContentLoaded",function(){
 
     <!-- CONTROLES -->
     <div class="video-controls" aria-label="Controles do vídeo">
-      <button class="vc-btn" id="btnPlayPause" type="button" aria-label="Pausar vídeo">
-        <i class="bi bi-pause-fill"></i>
-      </button>
-      <button class="vc-btn" id="btnMute" type="button" aria-label="Ativar som">
-        <i class="bi bi-volume-mute-fill"></i>
-      </button>
+      <button class="vc-btn" id="btnPlayPause" type="button" aria-label="Pausar vídeo"><i class="bi bi-pause-fill"></i></button>
+      <button class="vc-btn" id="btnMute" type="button" aria-label="Ativar som"><i class="bi bi-volume-mute-fill"></i></button>
       <span class="vc-label" id="vcStatus" aria-hidden="true"></span>
     </div>
 
@@ -130,8 +149,7 @@ document.addEventListener("DOMContentLoaded",function(){
       <div class="container position-relative">
         <h1>Beleza começa pelo olhar</h1>
         <p class="lead">Design de Cílios e Formação Profissional para você se destacar.<br>Sinta-se linda, poderosa e confiante!</p>
-        <a class="cta" target="_blank"
-           href="https://wa.me/5571991806312?text=Ol%C3%A1%2C%20gostaria%20de%20agendar%20um%20hor%C3%A1rio%20com%20a%20BellCilios%21">
+        <a class="cta" target="_blank" href="https://wa.me/5571991806312?text=Ol%C3%A1%2C%20gostaria%20de%20agendar%20um%20hor%C3%A1rio%20com%20a%20BellCilios%21">
           <i class="bi bi-whatsapp"></i> Agende pelo WhatsApp
         </a>
       </div>
@@ -164,17 +182,20 @@ document.addEventListener("DOMContentLoaded",function(){
           </div>
         </div>
 
-        <!-- Card 2: Cursos -->
+        <!-- Card 2: Cursos Profissionais -->
         <div class="col-lg-5 col-md-6">
-          <div class="card service-card">
-            <div class="media-wrap">
-              <img src="{% static 'agendamentos/img/WhatsApp Image 2025-07-08 at 18.30.04.jpeg' %}" alt="Cursos">
+          <a href="{% url 'curso' %}" class="text-decoration-none">
+            <div class="card service-card h-100">
+              <div class="media-wrap">
+                <img src="{% static 'agendamentos/img/WhatsApp Image 2025-07-08 at 18.30.04.jpeg' %}" alt="Cursos">
+              </div>
+              <div class="card-body">
+                <h5 class="card-title">Cursos Profissionais</h5>
+                <p class="card-text">Cursos práticos, certificados e voltados para o sucesso na beleza.</p>
+                <span class="btn btn-primary-custom mt-2">Saiba mais</span>
+              </div>
             </div>
-            <div class="card-body">
-              <h5 class="card-title">Cursos Profissionais</h5>
-              <p class="card-text">Cursos práticos, certificados e voltados para o sucesso na beleza.</p>
-            </div>
-          </div>
+          </a>
         </div>
 
       </div>
@@ -182,56 +203,28 @@ document.addEventListener("DOMContentLoaded",function(){
   </section>
 </div>
 
+<!-- Botões Flutuantes -->
+<div class="floating-social">
+  <a href="https://www.instagram.com/bc_academyy?igsh=MXEweGVidXpkenFsbA==" target="_blank" aria-label="Instagram">
+    <i class="bi bi-instagram"></i>
+  </a>
+  <a href="https://www.tiktok.com/@bellcilios22092?_t=ZM-8y89PNCTsEH&_r=1" target="_blank" aria-label="TikTok">
+    <i class="bi bi-tiktok"></i>
+  </a>
+</div>
+
 <!-- Controles JS do vídeo -->
 <script>
 (function(){
-  const vid  = document.getElementById('heroVideo');
-  const bPP  = document.getElementById('btnPlayPause');
-  const bM   = document.getElementById('btnMute');
-  const lab  = document.getElementById('vcStatus');
-
-  function setLabel(text){
-    if(!lab) return;
-    lab.textContent = text || '';
-    lab.style.opacity = 1;
-    clearTimeout(setLabel._t);
-    setLabel._t = setTimeout(()=> lab.style.opacity = 0, 1200);
-  }
-
-  function refreshIcons(){
-    if(!vid) return;
-    // Play/Pause icon
-    bPP.innerHTML = vid.paused ? '<i class="bi bi-play-fill"></i>' : '<i class="bi bi-pause-fill"></i>';
-    bPP.setAttribute('aria-label', vid.paused ? 'Reproduzir vídeo' : 'Pausar vídeo');
-    // Mute icon
-    bM.innerHTML = vid.muted ? '<i class="bi bi-volume-mute-fill"></i>' : '<i class="bi bi-volume-up-fill"></i>';
-    bM.setAttribute('aria-label', vid.muted ? 'Ativar som' : 'Silenciar');
-  }
-
-  if(bPP){
-    bPP.addEventListener('click', async ()=>{
-      try{
-        if(vid.paused){ await vid.play(); setLabel('Reproduzindo'); }
-        else { vid.pause(); setLabel('Pausado'); }
-      }catch(e){}
-      refreshIcons();
-    });
-  }
-  if(bM){
-    bM.addEventListener('click', async ()=>{
-      try{
-        vid.muted = !vid.muted;
-        // alguns browsers exigem gesto do usuário para iniciar áudio
-        if(!vid.muted && vid.paused){ await vid.play().catch(()=>{}); }
-        setLabel(vid.muted ? 'Som desativado' : 'Som ativado');
-      }catch(e){}
-      refreshIcons();
-    });
-  }
-
-  // estado inicial
+  const vid=document.getElementById('heroVideo');
+  const bPP=document.getElementById('btnPlayPause');
+  const bM=document.getElementById('btnMute');
+  const lab=document.getElementById('vcStatus');
+  function setLabel(text){ if(!lab)return; lab.textContent=text||''; lab.style.opacity=1; clearTimeout(setLabel._t); setLabel._t=setTimeout(()=>lab.style.opacity=0,1200);}
+  function refreshIcons(){ if(!vid)return; bPP.innerHTML=vid.paused?'<i class="bi bi-play-fill"></i>':'<i class="bi bi-pause-fill"></i>'; bM.innerHTML=vid.muted?'<i class="bi bi-volume-mute-fill"></i>':'<i class="bi bi-volume-up-fill"></i>'; }
+  if(bPP){bPP.addEventListener('click',async()=>{if(vid.paused){await vid.play();setLabel('Reproduzindo');}else{vid.pause();setLabel('Pausado');}refreshIcons();});}
+  if(bM){bM.addEventListener('click',async()=>{vid.muted=!vid.muted;if(!vid.muted&&vid.paused){await vid.play().catch(()=>{});}setLabel(vid.muted?'Som desativado':'Som ativado');refreshIcons();});}
   refreshIcons();
 })();
 </script>
 {% endblock %}
-```

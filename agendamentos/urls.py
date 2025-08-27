@@ -34,4 +34,7 @@ urlpatterns = [
     path("clientes/", views.gerir_clientes, name="gerir_clientes"),
     path("clientes/editar/<int:cliente_id>/", views.editar_cliente, name="editar_cliente"),
     path("clientes/excluir/<int:cliente_id>/", views.excluir_cliente, name="excluir_cliente"),
+
+    # 👉 nova rota do curso
+    path("curso/", views.curso, name="curso"),
 ]

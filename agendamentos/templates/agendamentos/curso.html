@@ -1,0 +1,171 @@
+{% extends "agendamentos/base_publica.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+  /* Banner fixo no topo */
+  #curso-top-banner {
+    position: sticky;
+    top: 0;
+    z-index: 1050;
+    background: #a38916;
+    color: #fff;
+    text-align: center;
+    padding: .8rem;
+    font-weight: 600;
+    letter-spacing: .5px;
+    font-size: 1rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,.15);
+  }
+  #curso-page .course-videos video {
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  }
+</style>
+
+<!-- Banner -->
+<div id="curso-top-banner">
+  🌟 Garanta sua vaga agora — Aprenda técnicas exclusivas de extensão de cílios!
+</div>
+
+<div id="curso-page" class="py-5">
+  <div class="container">
+
+    <!-- Cabeçalho -->
+    <header class="text-center mb-5">
+      <h1 class="fw-bold" style="color:#a38916;">Curso de Extensão em Cílios - Nível Iniciante</h1>
+      <p class="lead">Domine as Técnicas Mais Avançadas e Destaque-se no Mercado!</p>
+    </header>
+
+    <!-- Para quem é -->
+    <section class="mb-5">
+      <h3 class="fw-semibold mb-3" style="color:#a38916;">👩‍🎓 Para quem é este curso?</h3>
+      <ul class="list-unstyled">
+        <li>✔ Desenvolvido para quem deseja ingressar na carreira como Lash Artist.</li>
+        <li>✔ Para profissionais que buscam aperfeiçoamento e atualização.</li>
+      </ul>
+    </section>
+
+    <!-- Diferenciais -->
+    <section class="mb-5">
+      <h3 class="fw-semibold mb-3" style="color:#a38916;">🌟 Diferenciais do Curso</h3>
+      <ul class="list-unstyled">
+        <li>✔ <b>Formato VIP:</b> Ensino individualizado ou em duplas.</li>
+        <li>✔ <b>Metodologia Internacional:</b> Imersão completa teórica e prática.</li>
+        <li>✔ <b>Aulas Estruturadas:</b> Conteúdo dinâmico e estratégico.</li>
+        <li>✔ <b>Experiência Real:</b> Prática em modelo humano desde o início.</li>
+        <li>✔ <b>Bônus Exclusivos:</b> Técnicas com fios tecnológicos.</li>
+        <li>✔ <b>Acompanhamento Pós-Curso:</b> Grupo VIP no WhatsApp.</li>
+      </ul>
+    </section>
+
+    <!-- Formato -->
+    <section class="mb-5">
+      <h3 class="fw-semibold mb-3" style="color:#a38916;">📅 Formato e Carga Horária</h3>
+      <ul class="list-unstyled">
+        <li>✔ Duração: 2 dias (domingo e segunda pela manhã)</li>
+        <li>✔ Horário: 08h às 17h (ajustável conforme necessidade)</li>
+        <li>✔ Local: Studio Bell Aragão – Rua Getúlio Vargas, nº 18, Centro Dias D’Ávila – BA</li>
+        <li>✔ Agendamento conforme disponibilidade da educadora</li>
+      </ul>
+    </section>
+
+    <!-- Conteúdo Programático -->
+    <section class="mb-5">
+      <h3 class="fw-semibold mb-3" style="color:#a38916;">📚 Conteúdo Programático</h3>
+      <ul class="list-unstyled">
+        <li>✔ Fio a Fio Clássico – Naturalidade e precisão.</li>
+        <li>✔ Volume Brasileiro – Efeito marcante e volumoso.</li>
+        <li>✔ Híbrido – Combinação equilibrada de clássico e volume.</li>
+        <li>✔ Volume Russo – Técnicas avançadas e impactantes.</li>
+      </ul>
+    </section>
+
+    <!-- Estratégias -->
+    <section class="mb-5">
+      <h3 class="fw-semibold mb-3" style="color:#a38916;">📌 Diferenciais e Estratégias Profissionais</h3>
+      <ul class="list-unstyled">
+        <li>✔ Marketing para Lash Designers.</li>
+        <li>✔ Organização do Espaço de Atendimento.</li>
+        <li>✔ Fotografia e Edição de Imagens.</li>
+        <li>✔ Técnicas para destacar seu trabalho nas redes sociais.</li>
+        <li>✔ Manutenção e durabilidade dos fios.</li>
+      </ul>
+    </section>
+
+    <!-- Material Incluso -->
+    <section class="mb-5">
+      <h3 class="fw-semibold mb-3" style="color:#a38916;">🎁 Material Incluso</h3>
+      <ul class="list-unstyled">
+        <li>✔ Certificado Oficial</li>
+        <li>✔ Apostila PDF e Kit Didático</li>
+        <li>✔ Materiais Profissionais para Prática:</li>
+        <ul>
+          <li>3 Lash Charts para treino</li>
+          <li>1 Caixa Mix de Fios</li>
+          <li>1 Plaquinha de Mão</li>
+          <li>1 Kit de Pinças</li>
+          <li>1 Kit de Limpeza</li>
+          <li>1 Pedra Jade</li>
+          <li>1 Kit de Materiais Descartáveis</li>
+        </ul>
+      </ul>
+    </section>
+
+    <!-- Investimento -->
+    <section class="mb-5">
+      <h3 class="fw-semibold mb-3" style="color:#a38916;">💰 Investimento e Condições</h3>
+      <ul class="list-unstyled">
+        <li>✔ Valor: R$ 1000,00 à vista (Pix)</li>
+        <li>✔ Parcelamento no cartão em até 12x (com acréscimo)</li>
+      </ul>
+    </section>
+
+    <!-- Regras -->
+    <section class="mb-5">
+      <h3 class="fw-semibold mb-3" style="color:#a38916;">📌 Regras e Políticas</h3>
+      <ul class="list-unstyled">
+        <li>✔ Matrícula e agendamento confirmados após pagamento.</li>
+        <li>✔ Desistência/ausência: valor não reembolsável.</li>
+        <li>✔ Curso pode ser reagendado conforme disponibilidade.</li>
+        <li>✔ Reagendamento deve ser comunicado com 72h de antecedência.</li>
+      </ul>
+    </section>
+
+    <!-- VÍDEOS -->
+    <section class="course-videos py-5">
+      <h3 class="fw-semibold mb-4 text-center" style="color:#a38916;">🎥 Veja como é na prática</h3>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <video class="w-100" autoplay muted loop playsinline controls>
+            <source src="{% static 'agendamentos/video/aula1.mp4' %}" type="video/mp4">
+            Seu navegador não suporta vídeo.
+          </video>
+        </div>
+        <div class="col-md-4">
+          <video class="w-100" autoplay muted loop playsinline controls>
+            <source src="{% static 'agendamentos/video/aula2.mp4' %}" type="video/mp4">
+            Seu navegador não suporta vídeo.
+          </video>
+        </div>
+        <div class="col-md-4">
+          <video class="w-100" autoplay muted loop playsinline controls>
+            <source src="{% static 'agendamentos/video/aula3.mp4' %}" type="video/mp4">
+            Seu navegador não suporta vídeo.
+          </video>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <div class="text-center mt-5">
+      <a href="https://wa.me/5571991806312?text=Ol%C3%A1%2C%20tenho%20interesse%20no%20curso%20de%20Extens%C3%A3o%20em%20C%C3%ADlios!"
+         class="btn btn-lg"
+         style="background:#a38916;color:#fff;border-radius:30px;box-shadow:0 4px 15px rgba(0,0,0,.2);">
+        <i class="bi bi-whatsapp"></i> Quero me inscrever agora!
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
