@@ -5,14 +5,12 @@ from PIL import Image
 import re
 
 def validate_cpf(value: str):
-    if not re.match(r'^\d{11}$', value or ''):
+    if not value:
+        return  # agora pode ser em branco
+    if not re.match(r'^\d{11}$', value):
         raise ValidationError('CPF inválido. Deve conter 11 dígitos numéricos.')
 
 def validate_telefone(value: str):
-    """
-    Aceita vazio (blank=True no campo). Se vier algo, valida somente números após
-    remover + - ( ) e espaços.
-    """
     if value in (None, ''):
         return
     cleaned_value = re.sub(r'[\s\+\-\(\)]', '', value)
@@ -26,6 +24,7 @@ class Cliente(models.Model):
     cpf = models.CharField(
         max_length=11,
         unique=True,
+        blank=True, null=True,   # <<< CPF OPCIONAL
         validators=[validate_cpf],
         help_text="Digite apenas os 11 números do CPF.",
         error_messages={'unique': "Este CPF já está cadastrado."}
@@ -46,17 +45,11 @@ class Servico(models.Model):
         return self.nome
 
     def save(self, *args, **kwargs):
-        """
-        Salva normalmente e, se houver imagem, garante recorte/resize 400x400.
-        (Não conflita com o recorte 1200x1200 feito na view — apenas downsizing
-        se você editar via admin sem recortar.)
-        """
         super().save(*args, **kwargs)
         if self.imagem:
             try:
                 img_path = self.imagem.path
                 with Image.open(img_path) as img:
-                    # Garante quadrado (corte central) e 400x400
                     w, h = img.size
                     if w != h:
                         side = min(w, h)
@@ -67,7 +60,6 @@ class Servico(models.Model):
                         img = img.resize((400, 400), Image.Resampling.LANCZOS)
                     img.save(img_path, quality=90, optimize=True)
             except Exception as e:
-                # Evita quebrar o fluxo por erro de Pillow
                 print(f"[SERVICO.save] Erro ao processar imagem: {e}")
 
 class Agendamento(models.Model):
