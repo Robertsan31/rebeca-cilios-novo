@@ -21,6 +21,7 @@
     background-color: #fff;
     box-shadow: 0 10px 30px rgba(200,180,90,0.10);
     min-height: 70vh;
+    position: relative;
   }
 
   .fc .fc-toolbar-title { font-size: 2.1rem !important; font-weight: 700; color: #8c6c21; }
@@ -48,9 +49,11 @@
     background: linear-gradient(180deg, rgba(166,124,0,0.04), transparent 40%);
   }
 
+  /* <<< AQUI: permitir a borda colorida dos eventos >>> */
   .fc .fc-event {
     border-radius: 12px !important;
-    border: 0 !important;
+    border-width: 2px !important;   /* mostra a borda enviada pela API */
+    border-style: solid !important;
     padding: 2px 6px !important;
     font-size: .95rem !important;
   }
@@ -75,6 +78,33 @@
   .slider.round{border-radius:34px}
   .slider.round:before{border-radius:50%}
   body.dark-mode .theme-switch-wrapper{color:#ffe395;}
+
+  /* Flyout de horários disponíveis (tooltip custom) */
+  .slots-flyout{
+    position: absolute;
+    z-index: 3000;
+    min-width: 220px;
+    max-width: 260px;
+    background: rgba(255,255,255,.98);
+    border: 1px solid #ecd7b3;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(200,180,90,.18);
+    padding: 10px;
+    pointer-events: none; /* não rouba clique do calendário */
+  }
+  .slots-flyout h6{
+    margin: 0 0 6px 0;
+    font-weight: 700; font-size: .95rem; color:#8c6c21;
+  }
+  .slots-flyout .slot{
+    display:inline-block; margin: 4px 6px 0 0; padding: 3px 8px;
+    border-radius: 999px; font-size: .82rem; border:1px solid #a67c00; color:#a67c00;
+    background: #fff; opacity:.9;
+  }
+  .slots-flyout .slot.disabled{
+    border-color:#bbb; color:#888; text-decoration: line-through;
+  }
+  body.dark-mode .slots-flyout{ background:#232325; border-color:#574b2b }
 </style>
 {% endblock %}
 
@@ -162,14 +192,12 @@ document.addEventListener('DOMContentLoaded', function () {
     try{
       return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
     }catch(e){
-      // fallback manual
       return `${pad2(date.getDate())}/${pad2(date.getMonth()+1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
     }
   }
   function normalizePhoneBR(phone){
     if(!phone) return '';
     let p = String(phone).replace(/[^\d]/g,'');
-    // se não tiver DDI, adiciona 55
     if(p.length >= 10 && !p.startsWith('55')) p = '55' + p;
     return p;
   }
@@ -202,8 +230,51 @@ document.addEventListener('DOMContentLoaded', function () {
   const serviceListEl = document.getElementById('service-list');
   const newAppointmentTimeEl = document.getElementById('new-appointment-time');
 
-  // Hoje (para bloquear clique no passado)
   const now = new Date();
+
+  /* ===== Flyout p/ horários disponíveis ===== */
+  let flyoutEl = null;
+  let flyoutTimer = null;
+
+  function ensureFlyout(){
+    if(!flyoutEl){
+      flyoutEl = document.createElement('div');
+      flyoutEl.className = 'slots-flyout';
+      flyoutEl.style.display = 'none';
+      document.body.appendChild(flyoutEl);
+    }
+    return flyoutEl;
+  }
+  function hideFlyoutSoon(delay=1800){
+    clearTimeout(flyoutTimer);
+    flyoutTimer = setTimeout(()=>{ if(flyoutEl) flyoutEl.style.display='none'; }, delay);
+  }
+  async function showSlotsFlyout(dateISO, anchorRect){
+    const el = ensureFlyout();
+    el.innerHTML = '<h6>Horários disponíveis (1h)</h6><div id="slots-mini">Carregando...</div>';
+    el.style.display = 'block';
+
+    // posição: ao lado inferior do dia
+    const scrollY = window.scrollY || document.documentElement.scrollTop;
+    el.style.left = (anchorRect.left + window.scrollX + 4) + 'px';
+    el.style.top  = (anchorRect.bottom + scrollY + 6) + 'px';
+
+    try{
+      const res = await fetch("{% url 'agendamentos:api_horarios_disponiveis' %}?data="+dateISO);
+      const data = await res.json();
+      const box = el.querySelector('#slots-mini');
+      box.innerHTML = '';
+      (data.slots || []).forEach(s=>{
+        const b = document.createElement('span');
+        b.className = 'slot' + (s.ocupado ? ' disabled' : '');
+        b.textContent = s.hora;
+        box.appendChild(b);
+      });
+    }catch(e){
+      // falha silenciosa
+    }
+    hideFlyoutSoon();
+  }
 
   const calendar = new FullCalendar.Calendar(calendarEl, {
     headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' },
@@ -221,30 +292,37 @@ document.addEventListener('DOMContentLoaded', function () {
     navLinks: true,
     selectable: true,
 
-    // carrega do endpoint
     events: calendarEl.dataset.eventsUrl,
     loading: (isLoading) => console.log("Carregando eventos:", isLoading),
     eventSourceSuccess: (raw) => console.log("Eventos OK:", raw),
     eventSourceFailure: (err) => console.error("Erro ao buscar eventos:", err),
 
     eventDidMount: function(info) {
-      // Aparência "pill"
+      // Aparência pill (cores já vêm da API; aqui apenas garantimos)
       info.el.style.borderRadius = '12px';
-      info.el.style.border = '0';
       info.el.style.padding = '2px 6px';
-      // Cor por status (se a API não enviar cor)
-      const p = info.event.extendedProps || {};
-      const st = (p.status || '').toLowerCase();
-      if(!info.event.backgroundColor || info.event.backgroundColor === '') {
-        let bg = '#6c757d'; // secondary
-        let color = '#fff';
-        if(st === 'confirmado') bg = '#198754';
-        else if(st === 'cancelado') bg = '#dc3545';
-        else if(st === 'realizado') bg = '#0d6efd';
-        else if(st === 'pendente'){ bg = '#ffc107'; color = '#222'; }
-        info.el.style.backgroundColor = bg;
-        info.el.style.color = color;
-      }
+    },
+
+    /* Hover/touch em dias do MÊS -> mostra flyout de horários */
+    dayCellDidMount: function(arg){
+      const cell = arg.el;
+      const dateISO = arg.date.toISOString().slice(0,10); // YYYY-MM-DD
+
+      // mouse
+      cell.addEventListener('mouseenter', ()=>{
+        const rect = cell.getBoundingClientRect();
+        showSlotsFlyout(dateISO, rect);
+      });
+      cell.addEventListener('mouseleave', ()=>{
+        hideFlyoutSoon(300); // some rápido ao sair
+      });
+
+      // toque (mobile): mostra e oculta depois de 2s
+      cell.addEventListener('touchstart', ()=>{
+        const rect = cell.getBoundingClientRect();
+        showSlotsFlyout(dateISO, rect);
+      }, {passive:true});
+      cell.addEventListener('touchend', ()=> hideFlyoutSoon(1600), {passive:true});
     },
 
     eventClick: function (info) {
@@ -252,7 +330,6 @@ document.addEventListener('DOMContentLoaded', function () {
       const p = info.event.extendedProps || {};
       const start = info.event.start;
 
-      // Dados no modal
       document.getElementById('modal-cliente-nome').textContent = p.cliente_nome || '';
       document.getElementById('modal-servico-nome').textContent = p.servico_nome || '';
       document.getElementById('modal-data-hora').textContent = formatPtBR(start);
@@ -268,11 +345,9 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('modal-cliente-telefone').textContent = p.cliente_telefone || '';
       document.getElementById('modal-cliente-email').textContent = p.cliente_email || '';
 
-      // Link Gerenciar (leva para a lista do dia)
       document.getElementById('modal-edit-link').href =
         "{% url 'agendamentos:gerir_agendamentos' %}?data=" + info.event.startStr.substring(0, 10);
 
-      // Notificação + Whats dentro do modal
       const whatsContainer = document.getElementById('modal-whats-container');
       whatsContainer.innerHTML = '';
       let msg, btnClass, alertClass, btnText, leadText;
@@ -305,16 +380,14 @@ document.addEventListener('DOMContentLoaded', function () {
     },
 
     dateClick: function (info) {
-      // Bloqueia passado (data passada do dia inteiro)
+      // Bloqueia passado (dia inteiro)
       const clicked = new Date(info.dateStr + 'T00:00:00');
       const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       if (clicked < todayOnly) {
-        // opcional: alerta simples
         alert('Não é possível agendar em datas passadas.');
         return;
       }
 
-      // abre modal de novo agendamento
       newAppointmentTimeEl.textContent = info.dateStr.split('-').reverse().join('/');
       serviceListEl.innerHTML = '';
       const servicos = {{ servicos_json|safe }};

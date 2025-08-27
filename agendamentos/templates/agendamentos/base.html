@@ -2,168 +2,177 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{% block title %}BellCilios - Agendamentos{% endblock %}</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}BellCilios • Painel{% endblock %}</title>
 
-  <!-- Bootstrap / Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
   <style>
-    :root{
-      --brand:#a67c00;
-      --brand-2:#8c6c21;
-      --bg: #fdfaff;
-    }
-    body{
-      font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background-image: linear-gradient(rgba(253,250,255,.92), rgba(253,250,255,.92)), url("{% static 'agendamentos/img/estampa 2.png' %}");
-      background-size: cover; background-attachment: fixed;
-      color:#222;
-    }
-    a{ text-decoration: none }
-
-    /* Topbar */
-    .topbar{
-      position: sticky; top:0; z-index: 1030;
-      backdrop-filter: blur(6px);
-      background: rgba(255,255,255,.75);
-      border-bottom: 1px solid #f0e8d9;
-    }
-
-    /* Sidebar */
+    body{ background: #faf7ff; }
+    .brand { color:#8c6c21; font-weight:700; letter-spacing:.3px }
     .sidebar{
-      width: 230px;
-      position: sticky; top:72px; /* abaixo da topbar */
-      height: calc(100dvh - 72px);
-      padding: 1rem;
-      background: #fff;
-      border-right: 1px solid #f0e8d9;
+      width: 260px; border-right:1.5px solid #ecd7b3; background:#fff;
+      box-shadow: 0 10px 30px rgba(200,180,90,.08);
+      border-radius: 18px; padding: 16px; height: calc(100vh - 32px);
+      position: sticky; top: 16px;
     }
     .sidebar .nav-link{
-      color: #444;
-      border-radius: 10px;
-      padding: .55rem .75rem;
-      display: flex; align-items: center; gap:.5rem;
+      color:#4b4b4b; border-radius:14px; padding:.7rem .9rem; font-weight:600;
+      display:flex; align-items:center; gap:.6rem;
     }
-    .sidebar .nav-link:hover{ background: #f8f5ef; color: var(--brand-2) }
-    .sidebar .nav-link.active{ background: #fff6e0; color: var(--brand-2); font-weight: 600 }
-
-    /* Área principal */
-    .main{
-      padding: 1.5rem;
+    .sidebar .nav-link:hover{ background:#fff7e3 }
+    .sidebar .nav-link.active{ background:#fff3cf; color:#8c6c21 }
+    .content-wrap{ padding:16px }
+    .page-header{
+      background:#fff; border:1.5px solid #ecd7b3; border-radius:16px;
+      padding:.6rem .9rem; display:flex; align-items:center; justify-content:space-between;
+      box-shadow: 0 10px 30px rgba(200,180,90,.08);
     }
-
-    /* Botão primário custom */
-    .btn-primary-custom{
-      background-color: var(--brand);
-      border-color: var(--brand);
-      color:#fff;
+    /* Offcanvas: usa mesmo visual da sidebar */
+    .offcanvas-nav .nav-link{
+      color:#4b4b4b; border-radius:14px; padding:.7rem .9rem; font-weight:600;
+      display:flex; align-items:center; gap:.6rem;
     }
-    .btn-primary-custom:hover{
-      background-color: var(--brand-2);
-      border-color: var(--brand-2);
-      color:#fff;
-    }
-
-    /* ===== THUMBS PADRÃO – USADO EM "GERIR SERVIÇOS" ===== */
-    .servico-thumb{
-      width: 140px;      /* largura fixa da célula */
-      height: 105px;     /* 4x3 */
-      object-fit: cover; /* sem distorcer; corta se precisar */
-      border-radius: 10px;
-      display: block;
-    }
-    @media (max-width: 991.98px){
-      .servico-thumb{ width: 120px; height: 90px; }
-    }
-
-    /* Dark mode básico (opcional) */
-    body.dark-mode{
-      background: #16161a !important;
-      color: #e7e7ea;
-    }
-    body.dark-mode .topbar{ background: rgba(22,22,26,.65); border-color:#2b2b31 }
-    body.dark-mode .sidebar{ background:#1f1f26; border-color:#2b2b31 }
-    body.dark-mode .sidebar .nav-link{ color:#d9d9df }
-    body.dark-mode .sidebar .nav-link:hover{ background:#262631; color:#ffe395 }
-    body.dark-mode .sidebar .nav-link.active{ background:#2b2430; color:#ffe395 }
-    body.dark-mode .btn-primary-custom{ background:#b9901e; border-color:#b9901e }
+    .offcanvas-nav .nav-link.active{ background:#fff3cf; color:#8c6c21 }
   </style>
 
   {% block extra_css %}{% endblock %}
 </head>
 <body>
 
-  <!-- Topbar -->
-  <nav class="topbar navbar navbar-expand-lg">
-    <div class="container-fluid">
-      <a class="navbar-brand d-flex align-items-center" href="{% url 'agendamentos:painel' %}">
-        <img src="{% static 'agendamentos/img/submarca.png' %}" alt="BellCilios" height="32" class="me-2">
-        <span class="fw-semibold" style="color:var(--brand-2)">BellCilios • Painel</span>
-      </a>
+  <!-- HEADER -->
+  <div class="container-fluid px-3 py-2">
+    <div class="page-header">
+      <div class="d-flex align-items-center gap-2">
+        <!-- Botão do menu (só em < lg) -->
+        <button class="btn btn-outline-secondary d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu" aria-label="Abrir menu">
+          <i class="bi bi-list"></i>
+        </button>
+        <a href="{% url 'agendamentos:painel' %}" class="text-decoration-none brand">
+          <img src="{% static 'agendamentos/img/submarca.png' %}" alt="BellCilios" height="30" class="me-1">
+          BellCilios • Painel
+        </a>
+      </div>
 
       <div class="d-flex align-items-center gap-2">
-        <!-- toggle tema -->
-        <button class="btn btn-sm btn-outline-secondary" id="toggle-theme" title="Alternar tema">
-          <i class="bi bi-moon-stars"></i>
-        </button>
-        <!-- logout -->
-        <form action="{% url 'logout' %}" method="post" class="ms-1">
-          {% csrf_token %}
-          <button class="btn btn-sm btn-outline-danger">Sair</button>
-        </form>
+        {% if request.user.is_authenticated %}
+          <span class="text-muted small me-2">{{ request.user.username }}</span>
+          <a class="btn btn-outline-danger btn-sm" href="{% url 'logout' %}">Sair</a>
+        {% else %}
+          <a class="btn btn-outline-primary btn-sm" href="{% url 'login' %}">Entrar</a>
+        {% endif %}
       </div>
-    </div>
-  </nav>
-
-  <div class="container-fluid">
-    <div class="row">
-      <!-- Sidebar desktop -->
-      <aside class="col-lg-2 d-none d-lg-block sidebar">
-        <nav class="nav flex-column">
-          <a class="nav-link {% if request.resolver_match.url_name == 'painel' %}active{% endif %}" href="{% url 'agendamentos:painel' %}">
-            <i class="bi bi-house me-2"></i>Painel
-          </a>
-          <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'agendamentos:dashboard' %}">
-            <i class="bi bi-bar-chart-line me-2"></i>Dashboard
-          </a>
-          <a class="nav-link {% if request.resolver_match.url_name == 'gerir_agendamentos' %}active{% endif %}" href="{% url 'agendamentos:gerir_agendamentos' %}">
-            <i class="bi bi-calendar-check me-2"></i>Agendamentos
-          </a>
-          <a class="nav-link {% if request.resolver_match.url_name == 'gerir_servicos' %}active{% endif %}" href="{% url 'agendamentos:gerir_servicos' %}">
-            <i class="bi bi-gear me-2"></i>Serviços
-          </a>
-          <a class="nav-link {% if request.resolver_match.url_name == 'gerir_clientes' %}active{% endif %}" href="{% url 'agendamentos:gerir_clientes' %}">
-            <i class="bi bi-people me-2"></i>Clientes
-          </a>
-        </nav>
-      </aside>
-
-      <!-- Conteúdo -->
-      <main class="col-lg-10 main">
-        {% block content %}{% endblock %}
-      </main>
     </div>
   </div>
 
-  <!-- Scripts -->
+  <div class="container-fluid">
+    <div class="row g-3">
+      <!-- SIDEBAR DESKTOP -->
+      <div class="col-lg-3 d-none d-lg-block">
+        <aside class="sidebar">
+          {% with current=request.resolver_match.url_name %}
+          <nav class="nav flex-column">
+            <a class="nav-link {% if current == 'painel' %}active{% endif %}" href="{% url 'agendamentos:painel' %}">
+              <i class="bi bi-house-door"></i> Painel
+            </a>
+            <a class="nav-link {% if current == 'dashboard' %}active{% endif %}" href="{% url 'agendamentos:dashboard' %}">
+              <i class="bi bi-graph-up"></i> Dashboard
+            </a>
+            <a class="nav-link {% if current in 'gerir_agendamentos' %}active{% endif %}" href="{% url 'agendamentos:gerir_agendamentos' %}">
+              <i class="bi bi-calendar2-check"></i> Agendamentos
+            </a>
+            <a class="nav-link {% if current in 'gerir_servicos criar_servico editar_servico' %}active{% endif %}" href="{% url 'agendamentos:gerir_servicos' %}">
+              <i class="bi bi-gear"></i> Serviços
+            </a>
+            <a class="nav-link {% if current in 'gerir_clientes editar_cliente' %}active{% endif %}" href="{% url 'agendamentos:gerir_clientes' %}">
+              <i class="bi bi-people"></i> Clientes
+            </a>
+          </nav>
+          {% endwith %}
+        </aside>
+      </div>
+
+      <!-- CONTEÚDO -->
+      <div class="col-lg-9">
+        <div class="content-wrap">
+          {% if messages %}
+            <div class="toast-container position-fixed top-0 end-0 p-3">
+              {% for message in messages %}
+                <div class="toast align-items-center text-white {% if 'success' in message.tags %}bg-success{% elif 'error' in message.tags %}bg-danger{% else %}bg-info{% endif %} show" role="alert" aria-live="assertive" aria-atomic="true">
+                  <div class="d-flex">
+                    <div class="toast-body">{{ message }}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          {% block content %}{% endblock %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OFFCANVAS MOBILE/TABLET -->
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="offcanvasMenuLabel">
+        <img src="{% static 'agendamentos/img/submarca.png' %}" alt="" height="28" class="me-1">
+        Menu
+      </h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+    </div>
+    <div class="offcanvas-body">
+      {% with current=request.resolver_match.url_name %}
+      <nav class="offcanvas-nav nav flex-column">
+        <a class="nav-link {% if current == 'painel' %}active{% endif %}" href="{% url 'agendamentos:painel' %}">
+          <i class="bi bi-house-door"></i> Painel
+        </a>
+        <a class="nav-link {% if current == 'dashboard' %}active{% endif %}" href="{% url 'agendamentos:dashboard' %}">
+          <i class="bi bi-graph-up"></i> Dashboard
+        </a>
+        <a class="nav-link {% if current in 'gerir_agendamentos' %}active{% endif %}" href="{% url 'agendamentos:gerir_agendamentos' %}">
+          <i class="bi bi-calendar2-check"></i> Agendamentos
+        </a>
+        <a class="nav-link {% if current in 'gerir_servicos criar_servico editar_servico' %}active{% endif %}" href="{% url 'agendamentos:gerir_servicos' %}">
+          <i class="bi bi-gear"></i> Serviços
+        </a>
+        <a class="nav-link {% if current in 'gerir_clientes editar_cliente' %}active{% endif %}" href="{% url 'agendamentos:gerir_clientes' %}">
+          <i class="bi bi-people"></i> Clientes
+        </a>
+      </nav>
+      {% endwith %}
+      <hr>
+      {% if request.user.is_authenticated %}
+        <a class="btn btn-outline-danger w-100" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right"></i> Sair</a>
+      {% else %}
+        <a class="btn btn-outline-primary w-100" href="{% url 'login' %}">Entrar</a>
+      {% endif %}
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Toggle tema leve/escuro com persistência
-    (function(){
-      const btn = document.getElementById('toggle-theme');
-      const saved = localStorage.getItem('theme') || 'light';
-      if(saved === 'dark') document.body.classList.add('dark-mode');
-      btn?.addEventListener('click', ()=>{
-        document.body.classList.toggle('dark-mode');
-        const mode = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-        localStorage.setItem('theme', mode);
-      });
-    })();
-  </script>
+    // Fecha a offcanvas e só então navega (corrige no mobile)
+    document.addEventListener('DOMContentLoaded', function () {
+      const offEl = document.getElementById('offcanvasMenu');
+      if (!offEl) return;
+      const off = bootstrap.Offcanvas.getOrCreateInstance(offEl);
 
+      offEl.querySelectorAll('a.nav-link[href]').forEach(a => {
+        a.addEventListener('click', function (e) {
+          const href = a.getAttribute('href');
+          if (!href || href === '#') return;
+          e.preventDefault();
+          off.hide();
+          setTimeout(() => { window.location.href = href; }, 150);
+        }, {passive:false});
+      });
+    });
+  </script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

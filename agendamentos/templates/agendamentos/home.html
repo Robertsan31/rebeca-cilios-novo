@@ -1,3 +1,4 @@
+
 {% extends "agendamentos/base_publica.html" %}
 {% load static %}
 
@@ -12,7 +13,12 @@
 </style>
 <script>
 document.addEventListener("DOMContentLoaded",function(){
-  setTimeout(()=>{const l=document.getElementById('site-loader');if(l){l.style.opacity='0';setTimeout(()=>l.style.display='none',450)}},900);
+  setTimeout(()=>{
+    const l=document.getElementById('site-loader');
+    if(l){l.style.opacity='0';setTimeout(()=>l.style.display='none',450);}
+    const vid=document.querySelector('.hero-video video');
+    if(vid){ vid.play().catch(()=>{}); }
+  },900);
 });
 </script>
 
@@ -23,16 +29,21 @@ document.addEventListener("DOMContentLoaded",function(){
     #home-page .hero{
       position:relative; min-height:78vh; display:grid; place-items:center; text-align:center;
       color:#fff; overflow:hidden;
-      background:
-        radial-gradient(1200px 600px at 50% 22%, rgba(0,0,0,.10), transparent 60%),
-        linear-gradient(180deg, #c89a1f 0%, #a07b18 48%, #8f6b0a 100%);
+    }
+    #home-page .hero .hero-video{
+      position:absolute; inset:0; z-index:0; overflow:hidden;
+    }
+    #home-page .hero .hero-video video{
+      width:100%; height:100%; object-fit:cover; object-position:center;
+      filter:brightness(.75) saturate(105%);
     }
     #home-page .hero::after{
-      content:""; position:absolute; inset:0;
-      background:url('{% static "agendamentos/img/submarca.png" %}') center 20%/460px no-repeat;
-      opacity:.22; pointer-events:none;
-      filter: drop-shadow(0 6px 14px rgba(0,0,0,.25)) saturate(110%);
+      content:""; position:absolute; inset:0; z-index:1;
+      background:
+        radial-gradient(1200px 600px at 50% 22%, rgba(0,0,0,.15), transparent 60%),
+        linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,.35) 100%);
     }
+    #home-page .hero .hero-content{ position:relative; z-index:2; }
     #home-page .hero h1{
       font-family: "Playfair Display", ui-serif, Georgia, serif;
       font-size: clamp(2.2rem, 5vw, 3.6rem); font-weight:800; letter-spacing:.5px;
@@ -49,9 +60,26 @@ document.addEventListener("DOMContentLoaded",function(){
       transition:transform .18s, box-shadow .18s, border-color .18s;
     }
     #home-page .hero .cta:hover{ transform:translateY(-1px); box-shadow:0 10px 26px rgba(0,0,0,.18); border-color:#fff }
-    #home-page .hero-curve{position:absolute;left:0;right:0;bottom:-1px;line-height:0}
+    #home-page .hero-curve{position:absolute;left:0;right:0;bottom:-1px;line-height:0;z-index:2}
     #home-page .hero-curve svg{display:block;width:calc(100% + 1px);height:110px}
     #home-page .hero-curve .fill-next{fill:#fdfaff}
+
+    /* Controles do vídeo */
+    .video-controls{
+      position:absolute; right:14px; bottom:14px; z-index:3;
+      display:flex; gap:8px;
+    }
+    .video-controls .vc-btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:42px; height:42px; border-radius:999px; border:1px solid rgba(255,255,255,.7);
+      color:#fff; background:rgba(0,0,0,.25);
+      backdrop-filter: blur(2px);
+      cursor:pointer; transition:transform .15s, background .15s, border-color .15s;
+    }
+    .video-controls .vc-btn:hover{ transform:scale(1.05); background:rgba(0,0,0,.35); border-color:#fff; }
+    .video-controls .vc-btn i{ font-size:18px; line-height:1; }
+    .video-controls .vc-label{ position:absolute; right:0; bottom:52px; font-size:.8rem; background:rgba(0,0,0,.5); color:#fff; padding:.25rem .5rem; border-radius:6px; opacity:0; transform:translateY(6px); transition:.15s; pointer-events:none }
+    .video-controls:hover .vc-label{ opacity:1; transform:translateY(0) }
 
     /* ===== CARDS HOME ===== */
     #home-page .services-showcase-section{ padding:3.25rem 0 4rem }
@@ -63,12 +91,7 @@ document.addEventListener("DOMContentLoaded",function(){
     }
     #home-page .service-card:hover{ transform: translateY(-6px); box-shadow:0 14px 38px rgba(170,140,30,.16) }
 
-    /* Moldura e altura fixa da vitrine */
-    #home-page .media-wrap{
-      height:310px; background:#fafafa; /* leve cinza p/ destacar PNGs */
-      display:flex; align-items:center; justify-content:center;
-    }
-    /* qualquer img no carrossel ocupa toda a moldura */
+    #home-page .media-wrap{ height:310px; background:#fafafa; display:flex; align-items:center; justify-content:center; }
     #home-page .media-wrap img{ width:100%; height:100%; object-fit:contain; display:block; }
 
     #home-page .card-body{ padding:1rem 1.1rem 1.35rem }
@@ -82,14 +105,38 @@ document.addEventListener("DOMContentLoaded",function(){
 
   <!-- HERO -->
   <header class="hero">
-    <div class="container position-relative">
-      <h1>Beleza começa pelo olhar</h1>
-      <p class="lead">Design de Cílios e Formação Profissional para você se destacar.<br>Sinta-se linda, poderosa e confiante!</p>
-      <a class="cta" target="_blank"
-         href="https://wa.me/5571991806312?text=Olá%2C%20gostaria%20de%20agendar%20um%20horário%20com%20a%20BellCilios%21">
-        <i class="bi bi-whatsapp"></i> Agende pelo WhatsApp
-      </a>
+    <!-- BACKGROUND VIDEO -->
+    <div class="hero-video">
+      <video id="heroVideo" autoplay muted loop playsinline preload="metadata"
+             poster="{% static 'agendamentos/img/hero_poster.jpg' %}">
+        <source src="{% static 'agendamentos/video/hero.mp4' %}" type="video/mp4">
+        Seu navegador não suporta vídeo em HTML5.
+      </video>
     </div>
+
+    <!-- CONTROLES -->
+    <div class="video-controls" aria-label="Controles do vídeo">
+      <button class="vc-btn" id="btnPlayPause" type="button" aria-label="Pausar vídeo">
+        <i class="bi bi-pause-fill"></i>
+      </button>
+      <button class="vc-btn" id="btnMute" type="button" aria-label="Ativar som">
+        <i class="bi bi-volume-mute-fill"></i>
+      </button>
+      <span class="vc-label" id="vcStatus" aria-hidden="true"></span>
+    </div>
+
+    <!-- CONTEÚDO -->
+    <div class="hero-content">
+      <div class="container position-relative">
+        <h1>Beleza começa pelo olhar</h1>
+        <p class="lead">Design de Cílios e Formação Profissional para você se destacar.<br>Sinta-se linda, poderosa e confiante!</p>
+        <a class="cta" target="_blank"
+           href="https://wa.me/5571991806312?text=Ol%C3%A1%2C%20gostaria%20de%20agendar%20um%20hor%C3%A1rio%20com%20a%20BellCilios%21">
+          <i class="bi bi-whatsapp"></i> Agende pelo WhatsApp
+        </a>
+      </div>
+    </div>
+
     <div class="hero-curve">
       <svg viewBox="0 0 1200 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M985.66,92.83C906.67,72,823.78,31,743.84,14.19c-82.26-17.34-168.06-16.33-250.45.39
@@ -108,38 +155,7 @@ document.addEventListener("DOMContentLoaded",function(){
         <div class="col-lg-5 col-md-6">
           <div class="card service-card">
             <div class="media-wrap">
-              <div id="ciliosCarousel" class="carousel slide w-100 h-100" data-bs-ride="carousel" data-bs-interval="2600">
-                <div class="carousel-inner h-100">
-                  <div class="carousel-item active h-100">
-                    <img
-                      src="{% static 'agendamentos/img/design_sobrancelha_1.png' %}?v=2"
-                      alt="Design de Cílios 1"
-                      class="d-block w-100 h-100"
-                      onerror="this.onerror=null;console.warn('Erro ao carregar design_sobrancelha_1.png');this.src='{% static 'agendamentos/img/estampa 2.png' %}';">
-                  </div>
-                  <div class="carousel-item h-100">
-                    <img
-                      src="{% static 'agendamentos/img/design_sobrancelha_2.png' %}?v=2"
-                      alt="Design de Cílios 2"
-                      class="d-block w-100 h-100"
-                      onerror="this.onerror=null;console.warn('Erro ao carregar design_sobrancelha_2.png');this.src='{% static 'agendamentos/img/estampa 2.png' %}';">
-                  </div>
-                  <div class="carousel-item h-100">
-                    <img
-                      src="{% static 'agendamentos/img/design_sobrancelha_3.png' %}?v=2"
-                      alt="Design de Cílios 3"
-                      class="d-block w-100 h-100"
-                      onerror="this.onerror=null;console.warn('Erro ao carregar design_sobrancelha_3.png');this.src='{% static 'agendamentos/img/estampa 2.png' %}';">
-                  </div>
-                  <div class="carousel-item h-100">
-                    <img
-                      src="{% static 'agendamentos/img/design_sobrancelha_4.png' %}?v=2"
-                      alt="Design de Cílios 4"
-                      class="d-block w-100 h-100"
-                      onerror="this.onerror=null;console.warn('Erro ao carregar design_sobrancelha_4.png');this.src='{% static 'agendamentos/img/estampa 2.png' %}';">
-                  </div>
-                </div>
-              </div>
+              <img src="{% static 'agendamentos/img/design_sobrancelha_1.png' %}" alt="Design de Cílios">
             </div>
             <div class="card-body">
               <h5 class="card-title">Design de Cílios</h5>
@@ -152,34 +168,7 @@ document.addEventListener("DOMContentLoaded",function(){
         <div class="col-lg-5 col-md-6">
           <div class="card service-card">
             <div class="media-wrap">
-              <div id="cursosCarousel" class="carousel slide w-100 h-100" data-bs-ride="carousel" data-bs-interval="2800">
-                <div class="carousel-inner h-100">
-                  <div class="carousel-item active h-100">
-                    <img
-                      src="{% static 'agendamentos/img/WhatsApp Image 2025-07-08 at 18.30.04.jpeg' %}?v=2"
-                      alt="Curso 1" class="d-block w-100 h-100"
-                      onerror="this.onerror=null;this.src='{% static 'agendamentos/img/estampa 2.png' %}';">
-                  </div>
-                  <div class="carousel-item h-100">
-                    <img
-                      src="{% static 'agendamentos/img/WhatsApp Image 2025-07-08 at 18.30.04 (1).jpeg' %}?v=2"
-                      alt="Curso 2" class="d-block w-100 h-100"
-                      onerror="this.onerror=null;this.src='{% static 'agendamentos/img/estampa 2.png' %}';">
-                  </div>
-                  <div class="carousel-item h-100">
-                    <img
-                      src="{% static 'agendamentos/img/WhatsApp Image 2025-07-08 at 18.30.05.jpeg' %}?v=2"
-                      alt="Curso 3" class="d-block w-100 h-100"
-                      onerror="this.onerror=null;this.src='{% static 'agendamentos/img/estampa 2.png' %}';">
-                  </div>
-                  <div class="carousel-item h-100">
-                    <img
-                      src="{% static 'agendamentos/img/WhatsApp Image 2025-07-08 at 18.30.05 (1).jpeg' %}?v=2"
-                      alt="Curso 4" class="d-block w-100 h-100"
-                      onerror="this.onerror=null;this.src='{% static 'agendamentos/img/estampa 2.png' %}';">
-                  </div>
-                </div>
-              </div>
+              <img src="{% static 'agendamentos/img/WhatsApp Image 2025-07-08 at 18.30.04.jpeg' %}" alt="Cursos">
             </div>
             <div class="card-body">
               <h5 class="card-title">Cursos Profissionais</h5>
@@ -192,4 +181,57 @@ document.addEventListener("DOMContentLoaded",function(){
     </div>
   </section>
 </div>
+
+<!-- Controles JS do vídeo -->
+<script>
+(function(){
+  const vid  = document.getElementById('heroVideo');
+  const bPP  = document.getElementById('btnPlayPause');
+  const bM   = document.getElementById('btnMute');
+  const lab  = document.getElementById('vcStatus');
+
+  function setLabel(text){
+    if(!lab) return;
+    lab.textContent = text || '';
+    lab.style.opacity = 1;
+    clearTimeout(setLabel._t);
+    setLabel._t = setTimeout(()=> lab.style.opacity = 0, 1200);
+  }
+
+  function refreshIcons(){
+    if(!vid) return;
+    // Play/Pause icon
+    bPP.innerHTML = vid.paused ? '<i class="bi bi-play-fill"></i>' : '<i class="bi bi-pause-fill"></i>';
+    bPP.setAttribute('aria-label', vid.paused ? 'Reproduzir vídeo' : 'Pausar vídeo');
+    // Mute icon
+    bM.innerHTML = vid.muted ? '<i class="bi bi-volume-mute-fill"></i>' : '<i class="bi bi-volume-up-fill"></i>';
+    bM.setAttribute('aria-label', vid.muted ? 'Ativar som' : 'Silenciar');
+  }
+
+  if(bPP){
+    bPP.addEventListener('click', async ()=>{
+      try{
+        if(vid.paused){ await vid.play(); setLabel('Reproduzindo'); }
+        else { vid.pause(); setLabel('Pausado'); }
+      }catch(e){}
+      refreshIcons();
+    });
+  }
+  if(bM){
+    bM.addEventListener('click', async ()=>{
+      try{
+        vid.muted = !vid.muted;
+        // alguns browsers exigem gesto do usuário para iniciar áudio
+        if(!vid.muted && vid.paused){ await vid.play().catch(()=>{}); }
+        setLabel(vid.muted ? 'Som desativado' : 'Som ativado');
+      }catch(e){}
+      refreshIcons();
+    });
+  }
+
+  // estado inicial
+  refreshIcons();
+})();
+</script>
 {% endblock %}
+```

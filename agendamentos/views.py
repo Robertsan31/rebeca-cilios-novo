@@ -1,4 +1,3 @@
-# agendamentos/views.py
 from __future__ import annotations
 
 import base64
@@ -6,7 +5,7 @@ import csv
 import io
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -18,25 +17,17 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods
-
-# >>> IMPORTS para stats <<<
-from django.db.models import Count, Q
-from django.db.models.functions import TruncDate
+from django.db.models import Q, Count
 
 from .forms import ClienteForm, ServicoForm
 from .models import Cliente, Servico, Agendamento
 
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
 # Helpers
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
 def _salvar_base64_no_servico(servico: Servico, data_url: str) -> None:
-    """
-    Recebe um dataURL (base64) e grava em servico.imagem dentro de 'servicos/' já normalizado
-    para JPEG RGB 1200x1200. Fallback: salva bruto conforme MIME.
-    """
     from io import BytesIO
-
     try:
         from PIL import Image  # type: ignore
         PIL_OK = True
@@ -69,29 +60,30 @@ def _salvar_base64_no_servico(servico: Servico, data_url: str) -> None:
         out.seek(0)
         filename = f"servicos/servico_{servico.id}_{stamp}.jpg"
         if servico.imagem:
-            try:
-                servico.imagem.delete(save=False)
-            except Exception:
-                pass
+            try: servico.imagem.delete(save=False)
+            except Exception: pass
         servico.imagem.save(filename, ContentFile(out.read()), save=True)
     else:
         ext = "jpg"
-        if "png" in mime:
-            ext = "png"
-        elif "webp" in mime:
-            ext = "webp"
+        if "png" in mime: ext = "png"
+        elif "webp" in mime: ext = "webp"
         filename = f"servicos/servico_{servico.id}_{stamp}.{ext}"
         if servico.imagem:
-            try:
-                servico.imagem.delete(save=False)
-            except Exception:
-                pass
+            try: servico.imagem.delete(save=False)
+            except Exception: pass
         servico.imagem.save(filename, ContentFile(raw), save=True)
 
 
-# -----------------------------------------------------------------------------
-# PÚBLICO
-# -----------------------------------------------------------------------------
+def _day_range_local(date_obj):
+    """Retorna (início,fim) timezone-aware do dia local informado."""
+    dt_start = timezone.make_aware(datetime.combine(date_obj, time(0, 0)))
+    dt_end = dt_start + timedelta(days=1)
+    return dt_start, dt_end
+
+
+# ---------------------------------------------------------------------
+# Público
+# ---------------------------------------------------------------------
 def home(request: HttpRequest) -> HttpResponse:
     return render(request, "agendamentos/home.html")
 
@@ -108,9 +100,9 @@ def lista_servicos(request: HttpRequest) -> HttpResponse:
     return render(request, "agendamentos/lista_servicos.html", {"servicos": servicos})
 
 
-# -----------------------------------------------------------------------------
-# PAINEL / DASHBOARD
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Painel / Dashboard
+# ---------------------------------------------------------------------
 @login_required
 def painel(request: HttpRequest) -> HttpResponse:
     servicos = list(Servico.objects.values("id", "nome", "preco").order_by("id"))
@@ -143,133 +135,125 @@ def dashboard_export_pdf(request: HttpRequest) -> HttpResponse:
     return HttpResponse("Export PDF não implementado aqui.", content_type="text/plain")
 
 
-# -----------------------------------------------------------------------------
-# ESTATÍSTICAS (implementado)
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Estatísticas (linha + pizza + KPIs)
+# ---------------------------------------------------------------------
 @require_GET
 @login_required
 def stats(request: HttpRequest) -> JsonResponse:
     """
-    Retorna séries agregadas por dia dentro da janela solicitada (days=7/30/90...).
-    Shape do JSON compatível com o dashboard.html.
+    Retorna:
+      - labels (por dia)
+      - series (por status)
+      - pie (soma por status no range)
+      - tabela7d (últimos 7 dias)
+      - kpis (hoje, semana, mês, cancelados_mes)
     """
-    days = int(request.GET.get("days", 30))
-    if days < 1:
-        days = 7
+    days = max(1, int(request.GET.get("days", 30)))
+    base = timezone.localdate()
+    start_date = base - timedelta(days=days - 1)
+    start_dt, end_dt = _day_range_local(start_date)[0], _day_range_local(base)[1]
 
-    tz = timezone.get_current_timezone()
-    hoje_local = timezone.localdate()
-    inicio = hoje_local - timedelta(days=days - 1)
+    qs = Agendamento.objects.filter(data_hora__gte=start_dt, data_hora__lt=end_dt)
 
-    # Agregação por dia e por status (1 query)
-    agregados = (
-        Agendamento.objects
-        .filter(data_hora__date__gte=inicio, data_hora__date__lte=hoje_local)
-        .annotate(dia=TruncDate("data_hora", tzinfo=tz))
-        .values("dia")
-        .annotate(
-            total=Count("id"),
-            confirmado=Count("id", filter=Q(status="Confirmado")),
-            realizado=Count("id", filter=Q(status="Realizado")),
-            cancelado=Count("id", filter=Q(status="Cancelado")),
-            pendente=Count("id", filter=Q(status="Pendente")),
-        )
-        .order_by("dia")
-    )
-
-    por_dia = {row["dia"]: row for row in agregados}
-
+    # séries por dia
     labels = []
-    serie_total, serie_conf, serie_real, serie_canc, serie_pend = [], [], [], [], []
+    series = {"total": [], "confirmado": [], "realizado": [], "cancelado": [], "pendente": []}
     for i in range(days):
-        d = inicio + timedelta(days=i)
+        d = start_date + timedelta(days=i)
         labels.append(d.strftime("%d/%m"))
-        row = por_dia.get(d)
-        if row:
-            serie_total.append(row["total"])
-            serie_conf.append(row["confirmado"])
-            serie_real.append(row["realizado"])
-            serie_canc.append(row["cancelado"])
-            serie_pend.append(row["pendente"])
-        else:
-            serie_total.append(0)
-            serie_conf.append(0)
-            serie_real.append(0)
-            serie_canc.append(0)
-            serie_pend.append(0)
+        di, df = _day_range_local(d)
+        day_qs = qs.filter(data_hora__gte=di, data_hora__lt=df)
+        series["total"].append(day_qs.count())
+        for st_key in ("Confirmado", "Realizado", "Cancelado", "Pendente"):
+            series[st_key.lower()].append(day_qs.filter(status=st_key).count())
+
+    # pizza (totais do range)
+    pie = {
+        "confirmado": qs.filter(status="Confirmado").count(),
+        "realizado": qs.filter(status="Realizado").count(),
+        "cancelado": qs.filter(status="Cancelado").count(),
+        "pendente": qs.filter(status="Pendente").count(),
+    }
+
+    # tabela últimos 7 dias
+    t7_labels = []
+    t7 = []
+    for i in range(7):
+        d = base - timedelta(days=6 - i)
+        di, df = _day_range_local(d)
+        dq = Agendamento.objects.filter(data_hora__gte=di, data_hora__lt=df)
+        t7.append({
+            "data": d.strftime("%d/%m"),
+            "confirmados": dq.filter(status="Confirmado").count(),
+            "realizados": dq.filter(status="Realizado").count(),
+            "cancelados": dq.filter(status="Cancelado").count(),
+        })
+
+    # KPIs
+    hoje_i, hoje_f = _day_range_local(base)
+    semana_i = hoje_i - timedelta(days=base.weekday())  # segunda como início
+    mes_i = _day_range_local(base.replace(day=1))[0]
+    kpis = {
+        "hoje": Agendamento.objects.filter(data_hora__gte=hoje_i, data_hora__lt=hoje_f).count(),
+        "semana": Agendamento.objects.filter(data_hora__gte=semana_i, data_hora__lt=hoje_f).count(),
+        "mes": Agendamento.objects.filter(data_hora__gte=mes_i, data_hora__lt=hoje_f).count(),
+        "cancelados_mes": Agendamento.objects.filter(data_hora__gte=mes_i, data_hora__lt=hoje_f, status="Cancelado").count(),
+    }
 
     return JsonResponse({
         "labels": labels,
-        "series": {
-            "total": serie_total,
-            "confirmado": serie_conf,
-            "realizado": serie_real,
-            "cancelado": serie_canc,
-            "pendente": serie_pend,
-        },
+        "series": series,
+        "pie": pie,
+        "tabela7d": t7,
+        "kpis": kpis
     })
 
 
-# -----------------------------------------------------------------------------
-# API do calendário
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# APIs do calendário
+# ---------------------------------------------------------------------
 @require_GET
 @login_required
 def api_agendamentos(request: HttpRequest) -> JsonResponse:
-    """
-    Retorna eventos pro FullCalendar (com cores por status).
-    Faz parsing de start/end em ISO se vierem presentes.
-    """
     start = request.GET.get("start")
     end = request.GET.get("end")
 
     qs = Agendamento.objects.select_related("cliente", "servico")
-
-    # (opcional) interpretar ISO-8601
     if start:
-        try:
-            start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
-            qs = qs.filter(data_hora__gte=start_dt)
-        except ValueError:
-            pass
+        qs = qs.filter(data_hora__gte=start)
     if end:
-        try:
-            end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
-            qs = qs.filter(data_hora__lte=end_dt)
-        except ValueError:
-            pass
+        qs = qs.filter(data_hora__lte=end)
 
     eventos = []
     for a in qs:
-        # cor por status
-        bg = "#6c757d"  # default
+        bg = "#6c757d"
+        fg = "#ffffff"
         if a.status == "Confirmado":
             bg = "#198754"
         elif a.status == "Cancelado":
             bg = "#dc3545"
         elif a.status == "Pendente":
-            bg = "#ffc107"
+            bg = "#ffc107"; fg = "#222222"
         elif a.status == "Realizado":
-            bg = "#0dcaf0"
+            bg = "#0d6efd"
 
-        eventos.append(
-            {
-                "id": a.id,
-                "title": f"{a.data_hora.strftime('%H:%M')} {a.servico.nome if a.servico else ''}",
-                "start": a.data_hora.isoformat(),
-                "allDay": False,
-                "backgroundColor": bg,
-                "borderColor": bg,
-                "textColor": "#FFFFFF",
-                "extendedProps": {
-                    "status": a.status,
-                    "cliente_nome": a.cliente.nome if a.cliente else "",
-                    "cliente_email": a.cliente.email if a.cliente else "",
-                    "cliente_telefone": a.cliente.telefone if a.cliente else "",
-                    "servico_nome": a.servico.nome if a.servico else "",
-                },
-            }
-        )
+        eventos.append({
+            "id": a.id,
+            "title": f"{timezone.localtime(a.data_hora).strftime('%H:%M')} {a.servico.nome if a.servico else ''}",
+            "start": timezone.localtime(a.data_hora).isoformat(),
+            "allDay": False,
+            "backgroundColor": bg,
+            "borderColor": bg,
+            "textColor": fg,
+            "extendedProps": {
+                "status": a.status,
+                "cliente_nome": a.cliente.nome if a.cliente else "",
+                "cliente_email": a.cliente.email if a.cliente else "",
+                "cliente_telefone": a.cliente.telefone if a.cliente else "",
+                "servico_nome": a.servico.nome if a.servico else "",
+            },
+        })
 
     return JsonResponse(eventos, safe=False)
 
@@ -277,10 +261,6 @@ def api_agendamentos(request: HttpRequest) -> JsonResponse:
 @require_GET
 @login_required
 def api_notificacao_proximo_agendamento(request: HttpRequest) -> JsonResponse:
-    """
-    Exemplo simples: retorna se há próximo agendamento nas próximas 24h.
-    (Você pode enriquecer depois para reativar o lembrete WhatsApp.)
-    """
     agora = timezone.now()
     proximo = (
         Agendamento.objects.filter(data_hora__gte=agora, status__in=["Pendente", "Confirmado"])
@@ -290,14 +270,44 @@ def api_notificacao_proximo_agendamento(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"has_next": bool(proximo)})
 
 
-# -----------------------------------------------------------------------------
-# FLUXO DE AGENDAMENTO (básico)
-# -----------------------------------------------------------------------------
+@require_GET
+@login_required
+def api_horarios_disponiveis(request: HttpRequest) -> JsonResponse:
+    """
+    Retorna slots de 1h entre 09:00 e 18:00 para a data (?data=YYYY-MM-DD).
+    Marca como ocupado se existir agendamento na mesma data/hora.
+    """
+    data_str = request.GET.get("data")
+    if not data_str:
+        return JsonResponse({"slots": []})
+
+    try:
+        dia = datetime.strptime(data_str, "%Y-%m-%d").date()
+    except Exception:
+        return JsonResponse({"slots": []})
+
+    inicio_hora = 9
+    fim_hora_exclusivo = 18  # último slot começa às 17:00
+    slots = []
+
+    di, df = _day_range_local(dia)
+    dia_qs = Agendamento.objects.filter(data_hora__gte=di, data_hora__lt=df)
+
+    for h in range(inicio_hora, fim_hora_exclusivo):
+        dt = timezone.make_aware(datetime(dia.year, dia.month, dia.day, h, 0))
+        ocupado = dia_qs.filter(data_hora=dt).exists()
+        slots.append({"hora": f"{h:02d}:00", "ocupado": ocupado})
+
+    return JsonResponse({"slots": slots})
+
+
+# ---------------------------------------------------------------------
+# Fluxo de agendamento
+# ---------------------------------------------------------------------
 @login_required
 def agendar_servico(request: HttpRequest, servico_id: int) -> HttpResponse:
     servico = get_object_or_404(Servico, id=servico_id)
 
-    # valida data (querystring ?data=YYYY-MM-DD) e não permitir passado
     data_str = request.GET.get("data")
     dia = timezone.localdate()
     if data_str:
@@ -307,64 +317,42 @@ def agendar_servico(request: HttpRequest, servico_id: int) -> HttpResponse:
             pass
 
     if request.method == "POST":
-        hora = request.POST.get("hora")  # ex: "13:30"
+        hora = request.POST.get("hora")  # ex "13:00"
         if not hora:
-            return render(
-                request,
-                "agendamentos/agendar_servico.html",
-                {"servico": servico, "error_message": "Informe um horário.", "dia": dia},
-            )
+            return render(request, "agendamentos/agendar_servico.html",
+                          {"servico": servico, "dia": dia, "error_message": "Selecione um horário."})
 
         try:
             hh, mm = map(int, hora.split(":"))
             data_hora = timezone.make_aware(datetime(dia.year, dia.month, dia.day, hh, mm))
         except Exception:
-            return render(
-                request,
-                "agendamentos/agendar_servico.html",
-                {"servico": servico, "error_message": "Horário inválido.", "dia": dia},
-            )
+            return render(request, "agendamentos/agendar_servico.html",
+                          {"servico": servico, "dia": dia, "error_message": "Horário inválido."})
 
-        # bloqueia passado
         if data_hora < timezone.now():
-            return render(
-                request,
-                "agendamentos/agendar_servico.html",
-                {
-                    "servico": servico,
-                    "error_message": "Não é possível agendar no passado.",
-                    "dia": dia,
-                },
-            )
+            return render(request, "agendamentos/agendar_servico.html",
+                          {"servico": servico, "dia": dia, "error_message": "Não é possível agendar no passado."})
 
-        # redireciona para confirmar (simplificado)
-        return redirect(
-            "agendamentos:confirmar_agendamento",
-            servico_id=servico.id,
-            year=data_hora.year,
-            month=data_hora.month,
-            day=data_hora.day,
-            hour=data_hora.hour,
-            minute=data_hora.minute,
-        )
+        return redirect("agendamentos:confirmar_agendamento",
+                        servico_id=servico.id,
+                        year=data_hora.year, month=data_hora.month, day=data_hora.day,
+                        hour=data_hora.hour, minute=data_hora.minute)
 
-    return render(request, "agendamentos/agendar_servico.html", {"servico": servico, "dia": dia})
+    # link de interesse WhatsApp
+    whats_msg = f"Olá, gostaria de agendar o serviço {servico.nome} (R$ {servico.preco}) e saber mais informações."
+    whatsapp_interesse = f"https://wa.me/5571991806312?text={json.dumps(whats_msg, ensure_ascii=False)[1:-1]}"
+    return render(request, "agendamentos/agendar_servico.html",
+                  {"servico": servico, "dia": dia, "whatsapp_interesse": whatsapp_interesse})
 
 
 @login_required
-def confirmar_agendamento(
-    request: HttpRequest, servico_id: int, year: int, month: int, day: int, hour: int, minute: int
-) -> HttpResponse:
+def confirmar_agendamento(request: HttpRequest, servico_id: int, year: int, month: int, day: int, hour: int, minute: int) -> HttpResponse:
     servico = get_object_or_404(Servico, id=servico_id)
     data_hora = timezone.make_aware(datetime(year, month, day, hour, minute))
 
-    # bloqueia passado
     if data_hora < timezone.now():
-        return render(
-            request,
-            "agendamentos/confirmar_agendamento.html",
-            {"servico": servico, "data_hora": data_hora, "error_message": "Não é possível agendar no passado."},
-        )
+        return render(request, "agendamentos/confirmar_agendamento.html",
+                      {"servico": servico, "data_hora": data_hora, "error_message": "Não é possível agendar no passado."})
 
     clientes = Cliente.objects.all().order_by("nome")
 
@@ -373,42 +361,28 @@ def confirmar_agendamento(
         if origem == "existente":
             cid = request.POST.get("cliente_id")
             if not cid:
-                return render(
-                    request,
-                    "agendamentos/confirmar_agendamento.html",
-                    {"servico": servico, "data_hora": data_hora, "clientes": clientes, "error_message": "Selecione a cliente."},
-                )
+                return render(request, "agendamentos/confirmar_agendamento.html",
+                              {"servico": servico, "data_hora": data_hora, "clientes": clientes, "error_message": "Selecione a cliente."})
             cliente = get_object_or_404(Cliente, id=int(cid))
         else:
             form = ClienteForm(request.POST)
             if not form.is_valid():
-                return render(
-                    request,
-                    "agendamentos/confirmar_agendamento.html",
-                    {"servico": servico, "data_hora": data_hora, "clientes": clientes, "form": form},
-                )
+                return render(request, "agendamentos/confirmar_agendamento.html",
+                              {"servico": servico, "data_hora": data_hora, "clientes": clientes, "form": form})
             cliente = form.save()
 
-        Agendamento.objects.create(
-            cliente=cliente,
-            servico=servico,
-            data_hora=data_hora,
-            status="Confirmado",
-        )
+        Agendamento.objects.create(cliente=cliente, servico=servico, data_hora=data_hora, status="Confirmado")
         messages.success(request, "Agendamento criado com sucesso!")
         return redirect("agendamentos:painel")
 
     form = ClienteForm()
-    return render(
-        request,
-        "agendamentos/confirmar_agendamento.html",
-        {"servico": servico, "data_hora": data_hora, "clientes": clientes, "form": form},
-    )
+    return render(request, "agendamentos/confirmar_agendamento.html",
+                  {"servico": servico, "data_hora": data_hora, "clientes": clientes, "form": form})
 
 
-# -----------------------------------------------------------------------------
-# GERENCIAMENTO DE AGENDAMENTOS
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Gerenciamento
+# ---------------------------------------------------------------------
 @login_required
 def gerir_agendamentos(request: HttpRequest) -> HttpResponse:
     data_str = request.GET.get("data")
@@ -427,11 +401,8 @@ def gerir_agendamentos(request: HttpRequest) -> HttpResponse:
         .order_by("data_hora")
     )
 
-    return render(
-        request,
-        "agendamentos/gerir_agendamentos.html",
-        {"agendamentos": agendamentos, "dia_selecionado": dia, "data": dia},
-    )
+    return render(request, "agendamentos/gerir_agendamentos.html",
+                  {"agendamentos": agendamentos, "dia_selecionado": dia, "data": dia})
 
 
 @login_required
@@ -454,20 +425,16 @@ def atualizar_status_agendamento(request: HttpRequest, agendamento_id: int):
     if request.headers.get("x-requested-with") == "XMLHttpRequest" or "application/json" in (request.headers.get("Accept") or ""):
         return JsonResponse({"ok": True, "status": ag.status})
 
-    next_url = (
-        request.POST.get("next")
-        or request.META.get("HTTP_REFERER")
-        or reverse("agendamentos:gerir_agendamentos")
-    )
+    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or reverse("agendamentos:gerir_agendamentos")
     base = reverse("agendamentos:gerir_agendamentos")
     if base in next_url:
         next_url = base + f"?data={ag.data_hora.date().isoformat()}"
     return redirect(next_url)
 
 
-# -----------------------------------------------------------------------------
-# CRUD DE SERVIÇOS (com recorte de imagem)
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Serviços
+# ---------------------------------------------------------------------
 @login_required
 def gerir_servicos(request: HttpRequest) -> HttpResponse:
     servicos = list(Servico.objects.all().order_by("id"))
@@ -500,11 +467,7 @@ def criar_servico(request: HttpRequest) -> HttpResponse:
     else:
         form = ServicoForm()
 
-    return render(
-        request,
-        "agendamentos/criar_editar_servico.html",
-        {"form": form, "titulo_pagina": "Novo Serviço"},
-    )
+    return render(request, "agendamentos/criar_editar_servico.html", {"form": form, "titulo_pagina": "Novo Serviço"})
 
 
 @login_required
@@ -528,11 +491,7 @@ def editar_servico(request: HttpRequest, servico_id: int) -> HttpResponse:
     else:
         form = ServicoForm(instance=servico)
 
-    return render(
-        request,
-        "agendamentos/criar_editar_servico.html",
-        {"form": form, "titulo_pagina": "Editar Serviço"},
-    )
+    return render(request, "agendamentos/criar_editar_servico.html", {"form": form, "titulo_pagina": "Editar Serviço"})
 
 
 @login_required
@@ -549,14 +508,12 @@ def excluir_servico(request: HttpRequest, servico_id: int) -> HttpResponse:
 def remover_imagem_servico(request: HttpRequest, servico_id: int) -> HttpResponse:
     servico = get_object_or_404(Servico, id=servico_id)
     if servico.imagem:
-        try:
-            servico.imagem.delete(save=False)
-        except Exception:
-            pass
+        try: servico.imagem.delete(save=False)
+        except Exception: pass
         servico.imagem = None
         servico.save(update_fields=["imagem"])
     messages.success(request, "Imagem removida.")
-    return redirect("agendamentos:editar_servico", servico_id=servico.id)
+    return redirect("agendamentos:editar_servico", servico.id)
 
 
 @login_required
@@ -579,20 +536,21 @@ def recortar_imagem_servico(request: HttpRequest, servico_id: int) -> HttpRespon
         return redirect("agendamentos:gerir_servicos")
 
     imagem_url = servico.imagem.url if servico.imagem else ""
-    return render(
-        request,
-        "agendamentos/recortar_imagem_servico.html",
-        {"servico": servico, "imagem_url": imagem_url},
-    )
+    return render(request, "agendamentos/recortar_imagem_servico.html", {"servico": servico, "imagem_url": imagem_url})
 
 
-# -----------------------------------------------------------------------------
-# CRUD DE CLIENTES
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Clientes
+# ---------------------------------------------------------------------
 @login_required
 def gerir_clientes(request: HttpRequest) -> HttpResponse:
+    q = (request.GET.get("q") or "").strip()
     clientes = Cliente.objects.all().order_by("id")
-    return render(request, "agendamentos/gerir_clientes.html", {"clientes": clientes})
+    if q:
+        clientes = clientes.filter(
+            Q(nome__icontains=q) | Q(email__icontains=q) | Q(telefone__icontains=q) | Q(cpf__icontains=q)
+        )
+    return render(request, "agendamentos/gerir_clientes.html", {"clientes": clientes, "query": q})
 
 
 @login_required

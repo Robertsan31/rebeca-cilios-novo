@@ -13,6 +13,11 @@
 
   .btn-range{border-radius:9999px}
   .btn-range.active{background:#a67c00;border-color:#a67c00;color:#fff}
+
+  /* Limita o tamanho do gráfico de pizza */
+  .chart-wrap{max-width:520px;margin-inline:auto}
+  @media (max-width:768px){ .chart-wrap{max-width:360px} }
+  @media (max-width:480px){ .chart-wrap{max-width:300px} }
 </style>
 {% endblock %}
 
@@ -28,50 +33,50 @@
 <div class="row g-3 mb-4">
   <div class="col-md-3">
     <div class="card kpi-card p-3">
-      <div class="value">{{ agendamentos_hoje }}</div>
+      <div class="value" id="kpi-hoje">–</div>
       <div class="label">Agendamentos Hoje</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="card kpi-card p-3">
-      <div class="value">{{ agendamentos_semana }}</div>
+      <div class="value" id="kpi-semana">–</div>
       <div class="label">Esta Semana</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="card kpi-card p-3">
-      <div class="value">{{ agendamentos_mes }}</div>
+      <div class="value" id="kpi-mes">–</div>
       <div class="label">Este Mês</div>
     </div>
   </div>
   <div class="col-md-3">
     <div class="card kpi-card p-3">
-      <div class="value">{{ agendamentos_cancelados }}</div>
+      <div class="value" id="kpi-cancelados">–</div>
       <div class="label">Cancelados (mês)</div>
     </div>
   </div>
 </div>
 
-<!-- Gráfico + Seletor -->
+<!-- Pizza + seletor -->
 <div class="card chart-card p-3 mb-4">
   <div class="d-flex justify-content-between align-items-center">
-    <h5 class="m-0" style="color:#8c6c21;">Agendamentos por Dia</h5>
+    <h5 class="m-0" style="color:#8c6c21;">Status dos Agendamentos</h5>
     <div class="btn-group" role="group" aria-label="Intervalo">
       <button class="btn btn-outline-secondary btn-range" data-days="7">7 dias</button>
       <button class="btn btn-outline-secondary btn-range active" data-days="30">30 dias</button>
       <button class="btn btn-outline-secondary btn-range" data-days="90">90 dias</button>
     </div>
   </div>
-  <div class="mt-3">
-    <canvas id="graficoAgendamentos" style="height:360px"></canvas>
+  <div class="mt-3 chart-wrap">
+    <canvas id="graficoPizza"></canvas>
   </div>
 </div>
 
-<!-- Tabela simples (mantendo sua tabela_grafico) -->
+<!-- Tabela simples (últimos 7 dias) -->
 <div class="card p-3">
   <h6 class="mb-3">Tabela (últimos 7 dias)</h6>
   <div class="table-responsive">
-    <table class="table table-sm align-middle">
+    <table class="table table-sm align-middle" id="tabela7d">
       <thead>
         <tr>
           <th>Data</th>
@@ -80,18 +85,7 @@
           <th>Cancelados</th>
         </tr>
       </thead>
-      <tbody>
-        {% for linha in tabela_grafico %}
-        <tr>
-          <td>{{ linha.data }}</td>
-          <td>{{ linha.confirmados }}</td>
-          <td>{{ linha.realizados }}</td>
-          <td>{{ linha.cancelados }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4" class="text-muted">Sem dados.</td></tr>
-        {% endfor %}
-      </tbody>
+      <tbody></tbody>
     </table>
   </div>
 </div>
@@ -101,54 +95,53 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const ctx = document.getElementById('graficoAgendamentos').getContext('2d');
-  let chart;
+  const ctx = document.getElementById('graficoPizza').getContext('2d');
+  let pie;
 
-  const makeDS = (label, data, color) => ({
-    label, data, tension:.35, fill:false, borderColor: color, borderWidth:2, pointRadius:2
-  });
+  const rangeBtns = document.querySelectorAll('.btn-range');
+  rangeBtns.forEach(b=>b.addEventListener('click', e=>{
+    rangeBtns.forEach(x=>x.classList.remove('active'));
+    e.currentTarget.classList.add('active');
+    carregar(parseInt(e.currentTarget.dataset.days,10));
+  }));
 
-  async function load(days=30){
+  async function carregar(days=30){
     const url = "{% url 'agendamentos:stats' %}?days="+days;
     const res = await fetch(url);
-    if(!res.ok){ console.error('Falha na API de stats'); return; }
+    if(!res.ok){ console.warn('falha ao buscar stats'); return; }
     const data = await res.json();
 
-    const datasets = [
-      makeDS('Total',      data.series.total,      '#5d4a7b'),
-      makeDS('Confirmado', data.series.confirmado, '#28a745'),
-      makeDS('Realizado',  data.series.realizado,  '#0d6efd'),
-      makeDS('Cancelado',  data.series.cancelado,  '#dc3545'),
-      makeDS('Pendente',   data.series.pendente,   '#f0ad4e'),
-    ];
+    // KPIs
+    document.getElementById('kpi-hoje').textContent = data.kpis.hoje;
+    document.getElementById('kpi-semana').textContent = data.kpis.semana;
+    document.getElementById('kpi-mes').textContent = data.kpis.mes;
+    document.getElementById('kpi-cancelados').textContent = data.kpis.cancelados_mes;
 
-    if (chart) chart.destroy();
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: { labels: data.labels, datasets },
-      options: {
-        responsive:true, maintainAspectRatio:false,
-        scales: {
-          x: { grid:{ display:false } },
-          y: { beginAtZero:true, ticks:{ precision:0 } }
-        },
-        plugins: {
-          legend: { display:true },
-          tooltip: { mode:'index', intersect:false }
-        }
-      }
+    // Pizza
+    const labels = ['Confirmado','Realizado','Cancelado','Pendente'];
+    const valores = [
+      data.pie.confirmado, data.pie.realizado, data.pie.cancelado, data.pie.pendente
+    ];
+    const cores = ['#198754','#0d6efd','#dc3545','#f0ad4e'];
+
+    if(pie) pie.destroy();
+    pie = new Chart(ctx, {
+      type:'pie',
+      data:{ labels, datasets:[{ data: valores, backgroundColor: cores }] },
+      options:{ responsive:true, maintainAspectRatio:true, aspectRatio:1, plugins:{ legend:{ position:'bottom' } } }
+    });
+
+    // Tabela 7d
+    const tbody = document.querySelector('#tabela7d tbody');
+    tbody.innerHTML = '';
+    (data.tabela7d || []).forEach(l => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${l.data}</td><td>${l.confirmados}</td><td>${l.realizados}</td><td>${l.cancelados}</td>`;
+      tbody.appendChild(tr);
     });
   }
 
-  document.querySelectorAll('.btn-range').forEach(btn=>{
-    btn.addEventListener('click', (e)=>{
-      document.querySelectorAll('.btn-range').forEach(b=>b.classList.remove('active'));
-      e.currentTarget.classList.add('active');
-      load(parseInt(e.currentTarget.dataset.days,10));
-    });
-  });
-
-  load(30); // default
+  carregar(30);
 });
 </script>
 {% endblock %}
