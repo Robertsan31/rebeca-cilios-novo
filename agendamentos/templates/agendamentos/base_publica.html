@@ -6,11 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BellCilios - Agendamentos</title>
 
-  <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-
-  <!-- Swiper CSS (carrossel) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
 
   <style>
@@ -24,7 +21,7 @@
     .navbar-brand{ font-size:1.5rem }
     .btn-primary-custom{ background:#a67c00; border-color:#a67c00; color:#fff }
     .btn-primary-custom:hover{ background:#8c6c21; border-color:#8c6c21 }
-    h1,h2,h3,h5{ color:#8c6c21 } 
+    h1,h2,h3,h5{ color:#8c6c21 }
     .display-1,.display-2,.display-3,.display-4,.display-5,.display-6{ color:#8c6c21 }
     .social-icons a{ color:#a67c00; font-size:1.5rem; margin:0 10px; transition:color .3s, transform .2s }
     .social-icons a:hover{ color:#8c6c21; transform:scale(1.1) }
@@ -39,21 +36,37 @@
     .whatsapp-float:hover, .map-float:hover{ transform:scale(1.05); box-shadow:0 6px 18px rgba(0,0,0,.35); color:#fff }
     .whatsapp-float i, .map-float i{ font-size:22px }
     @media (max-width:480px){ .whatsapp-float span, .map-float span{ display:none } }
+    .nav-link.active{ text-decoration: underline; text-underline-offset: 4px; }
   </style>
 </head>
 <body>
   <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
     <div class="container">
+      <!-- Voltar -->
+      <button class="btn btn-outline-secondary me-2" id="btn-back-public" title="Voltar"
+              data-back-default="{% url 'home' %}">
+        <i class="bi bi-arrow-left"></i>
+      </button>
+
       <a class="navbar-brand" href="{% url 'home' %}">
         <img src="{% static 'agendamentos/img/submarca.png' %}" alt="Logotipo BellCilios" height="40">
       </a>
+
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto align-items-center">
-          <li class="nav-item"><a class="nav-link" href="{% url 'lista_servicos' %}">Nossos Serviços</a></li>
-          <li class="nav-item"><a href="{% url 'login' %}" class="btn btn-outline-secondary btn-sm">Login do Administrador</a></li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'lista_servicos' %}active{% endif %}" href="{% url 'lista_servicos' %}">
+              Nossos Serviços
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'resultados_alunas' %}active{% endif %}" href="{% url 'resultados_alunas' %}">
+              Resultados das Alunas
+            </a>
+          </li>
         </ul>
       </div>
     </div>
@@ -73,10 +86,26 @@
        target="_blank"><i class="bi bi-geo-alt"></i><span>Como chegar</span></a>
   {% endif %}
 
-  <!-- Bootstrap -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-  <!-- Swiper JS -->
   <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+  <script>
+    // Botão voltar com fallback
+    document.addEventListener('DOMContentLoaded', function(){
+      const backBtn = document.getElementById('btn-back-public');
+      if (backBtn){
+        backBtn.addEventListener('click', function(e){
+          e.preventDefault();
+          const fallback = backBtn.getAttribute('data-back-default') || '/';
+          const ref = document.referrer || '';
+          const sameOrigin = ref.startsWith(location.origin);
+          if (sameOrigin && window.history.length > 1) {
+            window.history.back();
+          } else {
+            window.location.href = fallback;
+          }
+        });
+      }
+    });
+  </script>
 </body>
 </html>

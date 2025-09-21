@@ -1,4 +1,3 @@
-<!-- agendamentos/templates/agendamentos/painel.html -->
 {% extends "agendamentos/base.html" %}
 {% load static %}
 
@@ -6,6 +5,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css">
 
 <style>
   :root { --fc-event-text-color: #FFFFFF; }
@@ -49,10 +49,9 @@
     background: linear-gradient(180deg, rgba(166,124,0,0.04), transparent 40%);
   }
 
-  /* <<< AQUI: permitir a borda colorida dos eventos >>> */
   .fc .fc-event {
     border-radius: 12px !important;
-    border-width: 2px !important;   /* mostra a borda enviada pela API */
+    border-width: 2px !important;
     border-style: solid !important;
     padding: 2px 6px !important;
     font-size: .95rem !important;
@@ -79,31 +78,18 @@
   .slider.round:before{border-radius:50%}
   body.dark-mode .theme-switch-wrapper{color:#ffe395;}
 
-  /* Flyout de horários disponíveis (tooltip custom) */
+  /* Flyout horários */
   .slots-flyout{
-    position: absolute;
-    z-index: 3000;
-    min-width: 220px;
-    max-width: 260px;
-    background: rgba(255,255,255,.98);
-    border: 1px solid #ecd7b3;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(200,180,90,.18);
-    padding: 10px;
-    pointer-events: none; /* não rouba clique do calendário */
+    position: absolute; z-index: 3000; min-width: 220px; max-width: 260px;
+    background: rgba(255,255,255,.98); border: 1px solid #ecd7b3; border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(200,180,90,.18); padding: 10px; pointer-events: none;
   }
-  .slots-flyout h6{
-    margin: 0 0 6px 0;
-    font-weight: 700; font-size: .95rem; color:#8c6c21;
-  }
+  .slots-flyout h6{ margin: 0 0 6px 0; font-weight: 700; font-size: .95rem; color:#8c6c21; }
   .slots-flyout .slot{
-    display:inline-block; margin: 4px 6px 0 0; padding: 3px 8px;
-    border-radius: 999px; font-size: .82rem; border:1px solid #a67c00; color:#a67c00;
-    background: #fff; opacity:.9;
+    display:inline-block; margin: 4px 6px 0 0; padding: 3px 8px; border-radius: 999px;
+    font-size: .82rem; border:1px solid #a67c00; color:#a67c00; background: #fff; opacity:.9;
   }
-  .slots-flyout .slot.disabled{
-    border-color:#bbb; color:#888; text-decoration: line-through;
-  }
+  .slots-flyout .slot.disabled{ border-color:#bbb; color:#888; text-decoration: line-through; }
   body.dark-mode .slots-flyout{ background:#232325; border-color:#574b2b }
 </style>
 {% endblock %}
@@ -124,14 +110,13 @@
   </div>
 </div>
 
-<!-- CALENDÁRIO -->
 <div class="card shadow-sm">
   <div class="card-body p-lg-4 p-2">
     <div id="calendar" data-events-url="{% url 'agendamentos:api_agendamentos' %}"></div>
   </div>
 </div>
 
-<!-- Modal Detalhes do Agendamento -->
+<!-- Modal Detalhes -->
 <div class="modal fade" id="appointmentModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -147,13 +132,11 @@
         <hr>
         <p><i class="bi bi-telephone"></i> <span id="modal-cliente-telefone"></span></p>
         <p><i class="bi bi-envelope"></i> <span id="modal-cliente-email"></span></p>
-
-        <!-- Notificação + botão WhatsApp -->
         <div id="modal-whats-container" class="mt-3"></div>
       </div>
       <div class="modal-footer">
         <a href="#" id="modal-edit-link" class="btn btn-outline-secondary">Gerenciar Agendamento</a>
-        <button type="button" class="btn btn-primary-custom" data-bs-dismiss="modal">Fechar</button>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Fechar</button>
       </div>
     </div>
   </div>
@@ -182,11 +165,21 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  /* ===== Helpers ===== */
+  // ---------- Tema (dark / light) ----------
   function applyTheme(theme){
     document.body.classList.toggle('dark-mode', theme === 'dark');
     document.getElementById('theme-switch-checkbox').checked = theme === 'dark';
   }
+  const themeSwitch = document.getElementById('theme-switch-checkbox');
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  applyTheme(savedTheme);
+  themeSwitch.addEventListener('change', e => {
+    const t = e.target.checked ? 'dark' : 'light';
+    localStorage.setItem('theme', t);
+    applyTheme(t);
+  });
+
+  // ---------- Utils ----------
   function pad2(n){ return String(n).padStart(2,'0'); }
   function formatPtBR(date){
     try{
@@ -201,41 +194,23 @@ document.addEventListener('DOMContentLoaded', function () {
     if(p.length >= 10 && !p.startsWith('55')) p = '55' + p;
     return p;
   }
-  function buildWhatsHref(phone, message){
-    const to = normalizePhoneBR(phone);
-    const msg = encodeURIComponent(message || '');
-    return `https://wa.me/${to}?text=${msg}`;
-  }
 
-  /* ===== Tema ===== */
-  const themeSwitch = document.getElementById('theme-switch-checkbox');
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme) applyTheme(savedTheme);
-  themeSwitch.addEventListener('change', e => {
-    const t = e.target.checked ? 'dark' : 'light';
-    localStorage.setItem('theme', t);
-    applyTheme(t);
-  });
-
-  /* ===== Calendário ===== */
+  // ---------- Elementos ----------
   const calendarEl = document.getElementById('calendar');
   const appointmentModalEl = document.getElementById('appointmentModal');
   const newAppointmentModalEl = document.getElementById('newAppointmentModal');
-  if (!calendarEl || !appointmentModalEl || !newAppointmentModalEl) {
-    console.error("Elementos essenciais do calendário não encontrados!");
-    return;
-  }
+  if (!calendarEl || !appointmentModalEl || !newAppointmentModalEl) return;
+
   const appointmentModal = new bootstrap.Modal(appointmentModalEl);
   const newAppointmentModal = new bootstrap.Modal(newAppointmentModalEl);
   const serviceListEl = document.getElementById('service-list');
   const newAppointmentTimeEl = document.getElementById('new-appointment-time');
 
-  const now = new Date();
+  const servicos = JSON.parse('{{ servicos_json|escapejs }}');
+  const defaultServiceId = servicos.length ? servicos[0].id : null;
 
-  /* ===== Flyout p/ horários disponíveis ===== */
-  let flyoutEl = null;
-  let flyoutTimer = null;
-
+  // ---------- Flyout de horários (usa API correta) ----------
+  let flyoutEl = null, flyoutTimer = null;
   function ensureFlyout(){
     if(!flyoutEl){
       flyoutEl = document.createElement('div');
@@ -250,32 +225,35 @@ document.addEventListener('DOMContentLoaded', function () {
     flyoutTimer = setTimeout(()=>{ if(flyoutEl) flyoutEl.style.display='none'; }, delay);
   }
   async function showSlotsFlyout(dateISO, anchorRect){
+    if(!defaultServiceId) return;
     const el = ensureFlyout();
-    el.innerHTML = '<h6>Horários disponíveis (1h)</h6><div id="slots-mini">Carregando...</div>';
+    el.innerHTML = '<h6>Horários disponíveis</h6><div id="slots-mini">Carregando...</div>';
     el.style.display = 'block';
-
-    // posição: ao lado inferior do dia
     const scrollY = window.scrollY || document.documentElement.scrollTop;
     el.style.left = (anchorRect.left + window.scrollX + 4) + 'px';
     el.style.top  = (anchorRect.bottom + scrollY + 6) + 'px';
-
     try{
-      const res = await fetch("{% url 'agendamentos:api_horarios_disponiveis' %}?data="+dateISO);
+      const url = "{% url 'agendamentos:api_horarios_disponiveis' %}?servico_id="+defaultServiceId+"&data="+dateISO;
+      const res = await fetch(url);
       const data = await res.json();
       const box = el.querySelector('#slots-mini');
       box.innerHTML = '';
-      (data.slots || []).forEach(s=>{
+      (data.horarios || []).forEach(h=>{
         const b = document.createElement('span');
-        b.className = 'slot' + (s.ocupado ? ' disabled' : '');
-        b.textContent = s.hora;
+        b.className = 'slot';
+        b.textContent = h;
         box.appendChild(b);
       });
+      if(!(data.horarios||[]).length){
+        box.innerHTML = '<span class="text-muted">Sem horários livres</span>';
+      }
     }catch(e){
-      // falha silenciosa
+      // silencia erro
     }
     hideFlyoutSoon();
   }
 
+  // ---------- Calendário ----------
   const calendar = new FullCalendar.Calendar(calendarEl, {
     headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' },
     initialView: 'dayGridMonth',
@@ -293,31 +271,20 @@ document.addEventListener('DOMContentLoaded', function () {
     selectable: true,
 
     events: calendarEl.dataset.eventsUrl,
-    loading: (isLoading) => console.log("Carregando eventos:", isLoading),
-    eventSourceSuccess: (raw) => console.log("Eventos OK:", raw),
-    eventSourceFailure: (err) => console.error("Erro ao buscar eventos:", err),
 
     eventDidMount: function(info) {
-      // Aparência pill (cores já vêm da API; aqui apenas garantimos)
       info.el.style.borderRadius = '12px';
       info.el.style.padding = '2px 6px';
     },
 
-    /* Hover/touch em dias do MÊS -> mostra flyout de horários */
     dayCellDidMount: function(arg){
       const cell = arg.el;
-      const dateISO = arg.date.toISOString().slice(0,10); // YYYY-MM-DD
-
-      // mouse
+      const dateISO = arg.date.toISOString().slice(0,10);
       cell.addEventListener('mouseenter', ()=>{
         const rect = cell.getBoundingClientRect();
         showSlotsFlyout(dateISO, rect);
       });
-      cell.addEventListener('mouseleave', ()=>{
-        hideFlyoutSoon(300); // some rápido ao sair
-      });
-
-      // toque (mobile): mostra e oculta depois de 2s
+      cell.addEventListener('mouseleave', ()=>{ hideFlyoutSoon(300); });
       cell.addEventListener('touchstart', ()=>{
         const rect = cell.getBoundingClientRect();
         showSlotsFlyout(dateISO, rect);
@@ -326,71 +293,72 @@ document.addEventListener('DOMContentLoaded', function () {
     },
 
     eventClick: function (info) {
-      info.jsEvent.preventDefault();
-      const p = info.event.extendedProps || {};
+      info.jsEvent?.preventDefault?.();
       const start = info.event.start;
+      const ext = info.event.extendedProps || {};
 
-      document.getElementById('modal-cliente-nome').textContent = p.cliente_nome || '';
-      document.getElementById('modal-servico-nome').textContent = p.servico_nome || '';
-      document.getElementById('modal-data-hora').textContent = formatPtBR(start);
+      // Tenta extrair serviço/cliente do título "Servico - Cliente"
+      let servicoNome = '', clienteNome = '';
+      if (info.event.title && info.event.title.includes(' - ')) {
+        const [s, c] = info.event.title.split(' - ');
+        servicoNome = s || ''; clienteNome = c || '';
+      }
 
+      document.getElementById('modal-cliente-nome').textContent = ext.cliente_nome || clienteNome || '';
+      document.getElementById('modal-servico-nome').textContent = ext.servico_nome || servicoNome || '';
+      document.getElementById('modal-data-hora').textContent = start ? formatPtBR(start) : '';
+
+      const status = ext.status || '';
       const statusEl = document.getElementById('modal-status');
-      statusEl.textContent = p.status || '';
+      statusEl.textContent = status || '';
       statusEl.className = 'badge';
-      if (p.status === 'Confirmado') statusEl.classList.add('bg-success');
-      else if (p.status === 'Cancelado') statusEl.classList.add('bg-danger');
-      else if (p.status === 'Realizado') statusEl.classList.add('bg-primary');
+      if (status === 'Confirmado') statusEl.classList.add('bg-success');
+      else if (status === 'Cancelado') statusEl.classList.add('bg-danger');
+      else if (status === 'Realizado') statusEl.classList.add('bg-primary');
       else statusEl.classList.add('bg-secondary');
 
-      document.getElementById('modal-cliente-telefone').textContent = p.cliente_telefone || '';
-      document.getElementById('modal-cliente-email').textContent = p.cliente_email || '';
+      document.getElementById('modal-cliente-telefone').textContent = ext.cliente_telefone || '';
+      document.getElementById('modal-cliente-email').textContent = ext.cliente_email || '';
 
       document.getElementById('modal-edit-link').href =
-        "{% url 'agendamentos:gerir_agendamentos' %}?data=" + info.event.startStr.substring(0, 10);
+        "{% url 'agendamentos:gerir_agendamentos' %}?data=" + (info.event.startStr || '').substring(0, 10);
 
       const whatsContainer = document.getElementById('modal-whats-container');
       whatsContainer.innerHTML = '';
-      let msg, btnClass, alertClass, btnText, leadText;
-
-      if ((p.status || '').toLowerCase() === 'cancelado') {
-        leadText = 'Agendamento cancelado.';
-        msg = `Olá ${p.cliente_nome || ''}, lamentamos informar que seu agendamento de ${p.servico_nome || 'serviço'} em ${formatPtBR(start)} foi cancelado. Caso queira remarcar, estamos à disposição.`;
-        btnClass = 'btn btn-danger';
-        alertClass = 'alert alert-danger';
-        btnText = '<i class="bi bi-whatsapp"></i> Enviar mensagem de cancelamento';
-      } else {
-        leadText = 'Agendamento confirmado.';
-        msg = `Oi ${p.cliente_nome || ''}! Confirmando seu horário de ${p.servico_nome || 'serviço'} em ${formatPtBR(start)}. Qualquer dúvida é só me chamar 💖`;
-        btnClass = 'btn btn-success';
-        alertClass = 'alert alert-success';
-        btnText = '<i class="bi bi-whatsapp"></i> Enviar mensagem de confirmação';
+      const phone = normalizePhoneBR(ext.cliente_telefone || '');
+      if (phone) {
+        let msg, btnClass, alertClass, btnText, leadText;
+        if ((status || '').toLowerCase() === 'cancelado') {
+          leadText = 'Agendamento cancelado.';
+          msg = `Olá ${clienteNome || ''}, seu agendamento de ${servicoNome || 'serviço'} em ${formatPtBR(start)} foi cancelado. Podemos remarcar?`;
+          btnClass = 'btn btn-danger'; alertClass = 'alert alert-danger';
+          btnText = '<i class="bi bi-whatsapp"></i> Enviar cancelamento';
+        } else {
+          leadText = 'Agendamento confirmado.';
+          msg = `Oi ${clienteNome || ''}! Confirmando seu horário de ${servicoNome || 'serviço'} em ${formatPtBR(start)}. Qualquer dúvida, me chame 💖`;
+          btnClass = 'btn btn-success'; alertClass = 'alert alert-success';
+          btnText = '<i class="bi bi-whatsapp"></i> Enviar confirmação';
+        }
+        const wa = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+        whatsContainer.innerHTML =
+          `<div class="${alertClass} d-flex justify-content-between align-items-center">
+            <span>${leadText}</span>
+            <a href="${wa}" target="_blank" rel="noopener" class="${btnClass}">${btnText}</a>
+          </div>`;
       }
-
-      const waHref = buildWhatsHref(p.cliente_telefone, msg);
-      whatsContainer.innerHTML = `
-        <div class="${alertClass} d-flex justify-content-between align-items-center">
-          <span>${leadText}</span>
-          <a href="${waHref}" target="_blank" rel="noopener" class="${btnClass}">
-            ${btnText}
-          </a>
-        </div>
-      `;
 
       appointmentModal.show();
     },
 
     dateClick: function (info) {
-      // Bloqueia passado (dia inteiro)
+      const now = new Date();
       const clicked = new Date(info.dateStr + 'T00:00:00');
-      const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      if (clicked < todayOnly) {
-        alert('Não é possível agendar em datas passadas.');
-        return;
-      }
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (clicked < today) { alert('Não é possível agendar em datas passadas.'); return; }
 
       newAppointmentTimeEl.textContent = info.dateStr.split('-').reverse().join('/');
       serviceListEl.innerHTML = '';
-      const servicos = {{ servicos_json|safe }};
+
       servicos.forEach(s => {
         const baseUrl = "{% url 'agendamentos:agendar_servico' 999 %}".replace('999', s.id);
         const url = `${baseUrl}?data=${info.dateStr}`;
@@ -401,7 +369,7 @@ document.addEventListener('DOMContentLoaded', function () {
           `<div class="d-flex w-100 justify-content-between">
              <h5 class="mb-1" style="color:#8c6c21;">${s.nome}</h5>
            </div>
-           <small>R$ ${parseFloat(s.preco).toFixed(2)}</small>`;
+           <small>Duração: ${s.duracao || 60} min</small>`;
         serviceListEl.appendChild(a);
       });
       newAppointmentModal.show();

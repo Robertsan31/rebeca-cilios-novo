@@ -1,18 +1,25 @@
+# agendamentos/forms.py
 from django import forms
-from .models import Cliente, Servico
+from django.contrib.auth.models import User
+from .models import Cliente, Servico, Agendamento
 
+# ===========================
+# CLIENTE
+# ===========================
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
         fields = ['nome', 'email', 'telefone', 'cpf']
         widgets = {
-            # NÃO usar required=True aqui; o JS da página controla conforme a seleção
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'telefone': forms.TextInput(attrs={'class': 'form-control'}),
             'cpf': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
+# ===========================
+# SERVIÇO
+# ===========================
 class ServicoForm(forms.ModelForm):
     class Meta:
         model = Servico
@@ -26,9 +33,7 @@ class ServicoForm(forms.ModelForm):
         }
 
     def clean_imagem(self):
-        """
-        Valida apenas a PROPORÇÃO 1:1 (quadrado) com tolerância de ±6%.
-        """
+        """Valida proporção 1:1 (quadrado) com tolerância de ±6%."""
         imagem = self.cleaned_data.get('imagem')
         if not imagem:
             return imagem
@@ -53,12 +58,60 @@ class ServicoForm(forms.ModelForm):
                 raise forms.ValidationError(
                     "A imagem deve ser QUADRADA (proporção 1:1). Ex.: 800×800, 1200×1200."
                 )
-
         except Exception:
-            # se algo falhar na validação, apenas rebobina e deixa passar
             try:
                 imagem.seek(0)
             except Exception:
                 pass
 
         return imagem
+
+# ===========================
+# AGENDAMENTO
+# ===========================
+class AgendamentoForm(forms.ModelForm):
+    class Meta:
+        model = Agendamento
+        fields = ['cliente', 'servico', 'data_hora', 'status']
+        widgets = {
+            'cliente': forms.Select(attrs={'class': 'form-select'}),
+            'servico': forms.Select(attrs={'class': 'form-select'}),
+            'data_hora': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+# ===========================
+# USER UPDATE (Auth)
+# ===========================
+class UserUpdateForm(forms.ModelForm):
+    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
+
+    class Meta:
+        model = User
+        fields = ['username', 'email']
+
+# ===========================
+# PROFILE UPDATE
+# (caso você tenha um modelo Profile, se não tiver pode remover depois)
+# ===========================
+class ProfileUpdateForm(forms.ModelForm):
+    class Meta:
+        model = Cliente  # 🔄 se você tiver um Profile separado, troque aqui
+        fields = ['telefone', 'cpf']
+
+# ===========================
+# CONFIGURAÇÃO (dummy)
+# ===========================
+class ConfiguracaoForm(forms.Form):
+    duracao_padrao = forms.IntegerField(
+        label="Duração padrão do agendamento (minutos)",
+        min_value=5,
+        initial=60,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+    intervalo = forms.IntegerField(
+        label="Intervalo entre agendamentos (minutos)",
+        min_value=5,
+        initial=30,
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )

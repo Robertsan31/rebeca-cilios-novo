@@ -7,6 +7,33 @@
         <h1 class="mb-0">Gerir Clientes</h1>
     </div>
 
+    <!-- Formulário para criar cliente -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <form method="post" action="{% url 'agendamentos:criar_cliente' %}">
+                {% csrf_token %}
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <input type="text" name="nome" class="form-control" placeholder="Nome" required>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="email" name="email" class="form-control" placeholder="Email" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="telefone" class="form-control" placeholder="Telefone" required>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="cpf" class="form-control" placeholder="CPF" required>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-success w-100">Adicionar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Formulário de busca -->
     <div class="row mb-4">
         <div class="col-md-6">
             <form method="get" action="{% url 'agendamentos:gerir_clientes' %}">
@@ -18,6 +45,7 @@
         </div>
     </div>
 
+    <!-- Tabela de clientes -->
     <div class="card">
         <div class="card-body">
             <table class="table table-hover">

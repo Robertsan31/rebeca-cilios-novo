@@ -1,0 +1,14 @@
+{% extends "agendamentos/base.html" %}
+{% block title %}Excluir Prova Social • Painel{% endblock %}
+
+{% block content %}
+<div class="card p-3">
+  <h4 class="mb-3">Excluir prova social</h4>
+  <p>Confirma excluir este feedback?</p>
+  <form method="post">
+    {% csrf_token %}
+    <button class="btn btn-danger" type="submit">Sim, excluir</button>
+    <a href="{% url 'agendamentos:gerir_provas' %}" class="btn btn-outline-secondary">Cancelar</a>
+  </form>
+</div>
+{% endblock %}

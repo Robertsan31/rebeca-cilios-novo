@@ -1,4 +1,5 @@
 {% extends 'agendamentos/base.html' %}
+{% load static %}
 
 {% block title %}{{ titulo_pagina }}{% endblock %}
 
@@ -53,7 +54,6 @@
 
       <div class="mb-3">
         <label class="form-label">Imagem do serviço</label>
-        <!-- IMPORTANTE: name="imagem" -->
         <input type="file" accept="image/*" class="form-control" id="id_imagem_file" name="imagem">
         <div class="form-text">Use o recorte abaixo (padrão 1:1). Formatos JPG/PNG.</div>
       </div>
@@ -88,8 +88,8 @@
         <div class="small text-muted">Pré-visualização do que será salvo.</div>
       </div>
 
-      <!-- Envia o recorte como base64 (opcional): a view salva direto -->
-      <input type="hidden" name="cropped_image_data" id="cropped_image_data">
+      <!-- IMPORTANTE: este nome precisa casar com a sua view (criar/editar) -->
+      <input type="hidden" name="imagem_base64" id="imagem_base64">
 
       <div class="mt-4 d-flex gap-2">
         <button type="submit" class="btn btn-primary btn-lg">Salvar</button>
@@ -99,12 +99,14 @@
   </div>
 
   <div class="col-lg-5">
-    {% if form.instance.imagem %}
-    <div class="card">
+
+    {# Remover imagem principal – só quando EDITANDO e já existe imagem #}
+    {% if form.instance.pk and form.instance.imagem %}
+    <div class="card mb-4">
       <div class="card-header">Imagem atual</div>
       <div class="card-body text-center">
         <img src="{{ form.instance.imagem.url }}" alt="Atual" class="img-fluid rounded" style="max-height:320px">
-        <form method="post" action="{% url 'agendamentos:remover_imagem_servico' form.instance.id %}" class="mt-3">
+        <form method="post" action="{% url 'agendamentos:remover_imagem_servico' form.instance.pk %}" class="mt-3">
           {% csrf_token %}
           <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Remover imagem atual?');">
             Remover Imagem
@@ -113,6 +115,46 @@
       </div>
     </div>
     {% endif %}
+
+    {# Imagens adicionais (máx. 5) – só quando EDITANDO e quando o recurso existe #}
+    {% if form.instance.pk and suporta_imagens_adicionais %}
+      <h5 class="mb-2">Imagens adicionais <small class="text-muted">(máx. 5)</small></h5>
+
+      {% if total_imagens_adicionais >= 5 %}
+        <div class="alert alert-warning py-2">Limite de 5 imagens atingido.</div>
+      {% else %}
+        <form method="post"
+              action="{% url 'agendamentos:adicionar_imagens_adicionais' form.instance.pk %}"
+              enctype="multipart/form-data" class="mb-3">
+          {% csrf_token %}
+          <input type="file" name="imagens_adicionais" accept="image/*" multiple class="form-control" />
+          <div class="form-text">Você pode enviar até 5 imagens (atualmente {{ total_imagens_adicionais }}).</div>
+          <button class="btn btn-primary mt-2">Enviar</button>
+        </form>
+      {% endif %}
+
+      <div class="row g-3">
+        {% for img in imagens_adicionais %}
+          <div class="col-6">
+            <div class="card h-100">
+              <img src="{{ img.imagem.url }}" class="card-img-top" style="object-fit:cover;height:160px">
+              <div class="card-body p-2 text-center">
+                <form method="post" action="{% url 'agendamentos:remover_imagem_adicional' img.id %}">
+                  {% csrf_token %}
+                  <button class="btn btn-outline-danger btn-sm"
+                          onclick="return confirm('Remover esta imagem?')">Remover</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        {% empty %}
+          <p class="text-muted">Nenhuma imagem adicional ainda.</p>
+        {% endfor %}
+      </div>
+    {% elif form.instance.pk and not suporta_imagens_adicionais %}
+      <div class="alert alert-info">Imagens adicionais indisponíveis (modelo/tabela ausente).</div>
+    {% endif %}
+
   </div>
 </div>
 {% endblock %}
@@ -124,35 +166,52 @@
   const input=document.getElementById('id_imagem_file');
   const img=document.getElementById('cropper-image');
   const finalPreview=document.getElementById('preview-final');
-  const hiddenField=document.getElementById('cropped_image_data');
+  const hiddenField=document.getElementById('imagem_base64'); // <-- casa com a view
 
   function initCropper(){
     if(cropper){cropper.destroy();cropper=null;}
-    cropper=new Cropper(img,{viewMode:1,dragMode:'move',aspectRatio:1,autoCropArea:1,background:false,movable:true,zoomable:true,responsive:true,checkCrossOrigin:false});
+    cropper=new Cropper(img,{
+      viewMode:1, dragMode:'move', aspectRatio:1, autoCropArea:1,
+      background:false, movable:true, zoomable:true, responsive:true, checkCrossOrigin:false
+    });
   }
+
   input.addEventListener('change',e=>{
     const f=e.target.files?.[0]; if(!f) return;
-    const url=URL.createObjectURL(f); img.src=url; img.style.display='block'; setTimeout(()=>initCropper(),50);
+    const url=URL.createObjectURL(f);
+    img.src=url; img.style.display='block';
+    setTimeout(()=>initCropper(),50);
   });
-  document.querySelectorAll('input[name="ratio"]').forEach(r=>r.addEventListener('change',()=>{
-    if(!cropper) return; if(r.value==='free'){cropper.setAspectRatio(NaN);}else{cropper.setAspectRatio(parseFloat(r.value));}
-  }));
-  document.getElementById('btn-zoom-in').addEventListener('click',()=>{if(cropper) cropper.zoom(0.1);});
-  document.getElementById('btn-zoom-out').addEventListener('click',()=>{if(cropper) cropper.zoom(-0.1);});
-  document.getElementById('btn-rotate').addEventListener('click',()=>{if(cropper) cropper.rotate(90);});
-  document.getElementById('btn-reset').addEventListener('click',()=>{if(cropper) cropper.reset();});
-  document.getElementById('btn-apply').addEventListener('click',()=>{
-    if(!cropper){hiddenField.value='';finalPreview.removeAttribute('src');return;}
-    let w=1200,h=1200;
+
+  document.querySelectorAll('input[name="ratio"]').forEach(r=>{
+    r.addEventListener('change',()=>{
+      if(!cropper) return;
+      if(r.value==='free'){ cropper.setAspectRatio(NaN); }
+      else { cropper.setAspectRatio(parseFloat(r.value)); }
+    });
+  });
+
+  document.getElementById('btn-zoom-in').addEventListener('click',()=>{ if(cropper) cropper.zoom(0.1); });
+  document.getElementById('btn-zoom-out').addEventListener('click',()=>{ if(cropper) cropper.zoom(-0.1); });
+  document.getElementById('btn-rotate').addEventListener('click',()=>{ if(cropper) cropper.rotate(90); });
+  document.getElementById('btn-reset').addEventListener('click',()=>{ if(cropper) cropper.reset(); });
+
+  function makeDataUrl(w=1200,h=1200){
+    if(!cropper) return '';
     const ar=cropper.options.aspectRatio;
     if(!isNaN(ar)){ if(ar>=1){h=Math.round(w/ar);} else {w=Math.round(h*ar);} }
-    const dataUrl=cropper.getCroppedCanvas({width:w,height:h,imageSmoothingQuality:'high'}).toDataURL('image/jpeg',0.9);
-    hiddenField.value=dataUrl; finalPreview.src=dataUrl;
+    return cropper.getCroppedCanvas({width:w,height:h,imageSmoothingQuality:'high'}).toDataURL('image/jpeg',0.9);
+  }
+
+  document.getElementById('btn-apply').addEventListener('click',()=>{
+    const dataUrl=makeDataUrl();
+    if(dataUrl){ hiddenField.value=dataUrl; finalPreview.src=dataUrl; }
   });
-  document.getElementById('servico-form').addEventListener('submit',ev=>{
+
+  document.getElementById('servico-form').addEventListener('submit',()=>{
     if(!hiddenField.value && cropper){
-      const dataUrl=cropper.getCroppedCanvas({width:1200,height:1200,imageSmoothingQuality:'high'}).toDataURL('image/jpeg',0.9);
-      hiddenField.value=dataUrl; finalPreview.src=dataUrl;
+      const dataUrl=makeDataUrl();
+      if(dataUrl){ hiddenField.value=dataUrl; finalPreview.src=dataUrl; }
     }
   });
 </script>

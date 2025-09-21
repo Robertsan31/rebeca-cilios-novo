@@ -1,0 +1,67 @@
+{% extends "agendamentos/base.html" %}
+{% load static %}
+
+{% block title %}{{ titulo }} • BellCilios{% endblock %}
+
+{% block extra_css %}
+<style>
+  .preview-img{
+    max-height:280px; object-fit:cover; border-radius:12px; border:1px solid #ecd7b3;
+    box-shadow:0 8px 22px rgba(200,180,90,.12);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{{ titulo }}</h1>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <form method="post" enctype="multipart/form-data" class="card shadow-sm">
+      <div class="card-body">
+        {% csrf_token %}
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="id_nome_aluna">Nome da aluna</label>
+          <input type="text" id="id_nome_aluna" name="nome_aluna"
+                 class="form-control" required
+                 value="{{ obj.nome_aluna|default_if_none:'' }}">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="id_tecnica">Técnica utilizada</label>
+          <input type="text" id="id_tecnica" name="tecnica"
+                 class="form-control" placeholder="Ex.: Fio a fio clássico"
+                 value="{{ obj.tecnica|default_if_none:'' }}">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="id_foto">Foto do trabalho</label>
+          <input type="file" id="id_foto" name="foto" accept="image/*" class="form-control">
+          <div class="form-text">Formatos JPG/PNG. Recomendo 1200px ou mais no lado maior.</div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-primary">Salvar</button>
+          <a href="{% url 'agendamentos:gerir_resultados' %}" class="btn btn-secondary">Cancelar</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="col-lg-5">
+    {% if obj and obj.foto %}
+    <div class="card">
+      <div class="card-header">Pré-visualização atual</div>
+      <div class="card-body text-center">
+        <img src="{{ obj.foto.url }}" alt="Resultado atual" class="img-fluid preview-img">
+      </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+      Nenhuma imagem carregada ainda. Selecione um arquivo e clique em <strong>Salvar</strong>.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

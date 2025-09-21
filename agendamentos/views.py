@@ -1,555 +1,893 @@
+# agendamentos/views.py
 from __future__ import annotations
 
-import base64
-import csv
-import io
-import json
-import re
-from datetime import datetime, timedelta, time
-
-from django.contrib import messages
-from django.contrib.auth import logout
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
-from django.core.serializers.json import DjangoJSONEncoder
-from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.contrib import messages
+from django.db.models import Count
+from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_http_methods
-from django.db.models import Q
+from django import forms
 
-from .forms import ClienteForm, ServicoForm
-from .models import Cliente, Servico, Agendamento
+from datetime import timedelta, datetime, time
+from io import BytesIO
+import base64
+import json
 
+from .models import (
+    Cliente, Servico, Agendamento,
+    ResultadoAluna, ProvaSocial
+)
 
-# ---------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------
-def _salvar_base64_no_servico(servico: Servico, data_url: str) -> None:
-    from io import BytesIO
-    try:
-        from PIL import Image  # type: ignore
-        PIL_OK = True
-    except Exception:
-        PIL_OK = False
-
-    m = re.match(r"^data:(image\/[A-Za-z0-9.+-]+);base64,(.+)$", data_url)
-    if not m:
-        raise ValueError("dataURL inválido.")
-    mime = m.group(1).lower()
-    raw = base64.b64decode(m.group(2))
-    stamp = timezone.now().strftime("%Y%m%d_%H%M%S")
-
-    if PIL_OK:
-        bio = BytesIO(raw)
-        img = Image.open(bio)
-        if img.mode not in ("RGB", "L"):
-            img = img.convert("RGB")
-        elif img.mode == "L":
-            img = img.convert("RGB")
-        w, h = img.size
-        if w != h:
-            side = min(w, h)
-            left = (w - side) // 2
-            top = (h - side) // 2
-            img = img.crop((left, top, left + side, top + side))
-        img = img.resize((1200, 1200), Image.Resampling.LANCZOS)
-        out = BytesIO()
-        img.save(out, format="JPEG", quality=90, optimize=True)
-        out.seek(0)
-        filename = f"servicos/servico_{servico.id}_{stamp}.jpg"
-        if servico.imagem:
-            try:
-                servico.imagem.delete(save=False)
-            except Exception:
-                pass
-        servico.imagem.save(filename, ContentFile(out.read()), save=True)
-    else:
-        ext = "jpg"
-        if "png" in mime:
-            ext = "png"
-        elif "webp" in mime:
-            ext = "webp"
-        filename = f"servicos/servico_{servico.id}_{stamp}.{ext}"
-        if servico.imagem:
-            try:
-                servico.imagem.delete(save=False)
-            except Exception:
-                pass
-        servico.imagem.save(filename, ContentFile(raw), save=True)
+# --------------------------------------------------------------------
+# (Opcional) suporte a imagens adicionais se existir o model no projeto
+# --------------------------------------------------------------------
+try:
+    from .models import ServicoImagem  # se não existir, fica como None
+except Exception:
+    ServicoImagem = None  # type: ignore
 
 
-def _day_range_local(date_obj):
-    """Retorna (início,fim) timezone-aware do dia local informado."""
-    dt_start = timezone.make_aware(datetime.combine(date_obj, time(0, 0)))
-    dt_end = dt_start + timedelta(days=1)
-    return dt_start, dt_end
+# --------------------------------------------------------------------
+# Forms
+# --------------------------------------------------------------------
+class AgendamentoForm(forms.ModelForm):
+    data_hora_agendamento = forms.CharField(
+        label="Data e hora (YYYY-MM-DD HH:MM)",
+        widget=forms.TextInput(attrs={"class": "form-control"})
+    )
+    class Meta:
+        model = Agendamento
+        fields = []
 
 
-# ---------------------------------------------------------------------
-# Público
-# ---------------------------------------------------------------------
-def home(request: HttpRequest) -> HttpResponse:
-    return render(request, "agendamentos/home.html")
+# ============================================================
+# PÚBLICO
+# ============================================================
 
-def curso(request: HttpRequest) -> HttpResponse:
-    return render(request, "agendamentos/curso.html")
+def home(request):
+    # carrega provas sociais ativas para o bloco da home (se o template usar)
+    provas = ProvaSocial.objects.filter(ativo=True).order_by("ordem", "-criado_em")[:8]
+    return render(request, "agendamentos/home.html", {"provas": provas})
 
 
-def lista_servicos(request: HttpRequest) -> HttpResponse:
-    servicos = list(Servico.objects.all().order_by("id"))
-    for s in servicos:
-        if getattr(s, "imagem", None):
-            try:
-                if not default_storage.exists(s.imagem.name):
-                    s.imagem = None
-            except Exception:
-                s.imagem = None
+def lista_servicos(request):
+    servicos = Servico.objects.all().order_by("nome")
     return render(request, "agendamentos/lista_servicos.html", {"servicos": servicos})
 
 
-@require_http_methods(["GET", "POST"])
-def logout_view(request: HttpRequest) -> HttpResponse:
-    logout(request)
-    return redirect("home")
+def curso(request):
+    return render(request, "agendamentos/curso.html")
 
 
-# ---------------------------------------------------------------------
-# Painel / Dashboard
-# ---------------------------------------------------------------------
-@login_required
-def painel(request: HttpRequest) -> HttpResponse:
-    servicos = list(Servico.objects.values("id", "nome", "preco").order_by("id"))
-    servicos_json = json.dumps(servicos, ensure_ascii=False, cls=DjangoJSONEncoder)
-    return render(request, "agendamentos/painel.html", {"servicos_json": servicos_json})
+def resultados_alunas(request):
+    resultados = ResultadoAluna.objects.filter(ativo=True).order_by("-criado_em")
+    return render(request, "agendamentos/resultados_alunas.html", {"resultados": resultados})
 
+
+# ============================================================
+# ÁREA LOGADA
+# ============================================================
 
 @login_required
-def dashboard(request: HttpRequest) -> HttpResponse:
-    return render(request, "agendamentos/dashboard.html")
+def painel(request):
+    cliente = None
+    if request.user and request.user.email:
+        cliente = Cliente.objects.filter(email=request.user.email).first()
 
+    agendamentos_pendentes = Agendamento.objects.none()
+    agendamentos_confirmados = Agendamento.objects.none()
 
-@login_required
-def dashboard_export_csv(request: HttpRequest) -> HttpResponse:
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow(["Relatório", timezone.now().strftime("%Y-%m-%d %H:%M")])
-    writer.writerow([])
-    writer.writerow(["Serviço", "Preço"])
-    for s in Servico.objects.all().order_by("id"):
-        writer.writerow([s.nome, s.preco])
+    if cliente:
+        agendamentos_pendentes = Agendamento.objects.filter(
+            cliente=cliente, status="Pendente"
+        ).order_by("data_hora")
+        agendamentos_confirmados = Agendamento.objects.filter(
+            cliente=cliente, status="Confirmado"
+        ).order_by("data_hora")
 
-    resp = HttpResponse(buffer.getvalue(), content_type="text/csv; charset=utf-8")
-    resp["Content-Disposition"] = 'attachment; filename="dashboard.csv"'
-    return resp
+    qs = Servico.objects.values("id", "nome", "preco", "duracao").order_by("nome")
+    servicos_list = [
+        {"id": s["id"], "nome": s["nome"], "preco": float(s["preco"]), "duracao": s["duracao"]}
+        for s in qs
+    ]
 
-
-@login_required
-def dashboard_export_pdf(request: HttpRequest) -> HttpResponse:
-    return HttpResponse("Export PDF não implementado aqui.", content_type="text/plain")
-
-
-# ---------------------------------------------------------------------
-# Estatísticas (linha + pizza + KPIs)
-# ---------------------------------------------------------------------
-@require_GET
-@login_required
-def stats(request: HttpRequest) -> JsonResponse:
-    days = max(1, int(request.GET.get("days", 30)))
-    base = timezone.localdate()
-    start_date = base - timedelta(days=days - 1)
-    start_dt, end_dt = _day_range_local(start_date)[0], _day_range_local(base)[1]
-
-    qs = Agendamento.objects.filter(data_hora__gte=start_dt, data_hora__lt=end_dt)
-
-    labels = []
-    series = {"total": [], "confirmado": [], "realizado": [], "cancelado": [], "pendente": []}
-    for i in range(days):
-        d = start_date + timedelta(days=i)
-        labels.append(d.strftime("%d/%m"))
-        di, df = _day_range_local(d)
-        day_qs = qs.filter(data_hora__gte=di, data_hora__lt=df)
-        series["total"].append(day_qs.count())
-        for st_key in ("Confirmado", "Realizado", "Cancelado", "Pendente"):
-            series[st_key.lower()].append(day_qs.filter(status=st_key).count())
-
-    pie = {
-        "confirmado": qs.filter(status="Confirmado").count(),
-        "realizado": qs.filter(status="Realizado").count(),
-        "cancelado": qs.filter(status="Cancelado").count(),
-        "pendente": qs.filter(status="Pendente").count(),
+    context = {
+        "agendamentos_pendentes": agendamentos_pendentes,
+        "agendamentos_confirmados": agendamentos_confirmados,
+        "servicos_json": json.dumps(servicos_list, ensure_ascii=False),
     }
-
-    t7 = []
-    for i in range(7):
-        d = base - timedelta(days=6 - i)
-        di, df = _day_range_local(d)
-        dq = Agendamento.objects.filter(data_hora__gte=di, data_hora__lt=df)
-        t7.append({
-            "data": d.strftime("%d/%m"),
-            "confirmados": dq.filter(status="Confirmado").count(),
-            "realizados": dq.filter(status="Realizado").count(),
-            "cancelados": dq.filter(status="Cancelado").count(),
-        })
-
-    hoje_i, hoje_f = _day_range_local(base)
-    semana_i = hoje_i - timedelta(days=base.weekday())
-    mes_i = _day_range_local(base.replace(day=1))[0]
-    kpis = {
-        "hoje": Agendamento.objects.filter(data_hora__gte=hoje_i, data_hora__lt=hoje_f).count(),
-        "semana": Agendamento.objects.filter(data_hora__gte=semana_i, data_hora__lt=hoje_f).count(),
-        "mes": Agendamento.objects.filter(data_hora__gte=mes_i, data_hora__lt=hoje_f).count(),
-        "cancelados_mes": Agendamento.objects.filter(data_hora__gte=mes_i, data_hora__lt=hoje_f, status="Cancelado").count(),
-    }
-
-    return JsonResponse({"labels": labels, "series": series, "pie": pie, "tabela7d": t7, "kpis": kpis})
+    return render(request, "agendamentos/painel.html", context)
 
 
-# ---------------------------------------------------------------------
-# APIs do calendário
-# ---------------------------------------------------------------------
-@require_GET
 @login_required
-def api_agendamentos(request: HttpRequest) -> JsonResponse:
-    start = request.GET.get("start")
-    end = request.GET.get("end")
+def dashboard(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para acessar esta página.")
+        return redirect("agendamentos:painel")
 
-    qs = Agendamento.objects.select_related("cliente", "servico")
-    if start:
-        qs = qs.filter(data_hora__gte=start)
-    if end:
-        qs = qs.filter(data_hora__lte=end)
+    total_servicos = Servico.objects.count()
+    total_agendamentos = Agendamento.objects.count()
+    agendamentos_pendentes = Agendamento.objects.filter(status="Pendente").count()
+    agendamentos_confirmados = Agendamento.objects.filter(status="Confirmado").count()
+    agendamentos_concluidos = Agendamento.objects.filter(status="Realizado").count()
 
-    eventos = []
-    for a in qs:
-        bg = "#6c757d"
-        fg = "#ffffff"
-        if a.status == "Confirmado":
-            bg = "#198754"
-        elif a.status == "Cancelado":
-            bg = "#dc3545"
-        elif a.status == "Pendente":
-            bg = "#ffc107"
-            fg = "#222222"
-        elif a.status == "Realizado":
-            bg = "#0d6efd"
+    servicos_populares = (
+        Servico.objects.annotate(num_agendamentos=Count("agendamentos"))
+        .order_by("-num_agendamentos")[:5]
+    )
 
-        eventos.append({
-            "id": a.id,
-            "title": f"{timezone.localtime(a.data_hora).strftime('%H:%M')} {a.servico.nome if a.servico else ''}",
-            "start": timezone.localtime(a.data_hora).isoformat(),
-            "allDay": False,
-            "backgroundColor": bg,
-            "borderColor": bg,
-            "textColor": fg,
+    context = {
+        "total_servicos": total_servicos,
+        "total_agendamentos": total_agendamentos,
+        "agendamentos_pendentes": agendamentos_pendentes,
+        "agendamentos_confirmados": agendamentos_confirmados,
+        "agendamentos_concluidos": agendamentos_concluidos,
+        "servicos_populares": servicos_populares,
+    }
+    return render(request, "agendamentos/dashboard.html", context)
+
+
+# ============================================================
+# CLIENTES
+# ============================================================
+
+@login_required
+def gerir_clientes(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para acessar clientes.")
+        return redirect("agendamentos:painel")
+
+    q = request.GET.get("q", "").strip()
+    clientes = Cliente.objects.all().order_by("nome")
+    if q:
+        clientes = clientes.filter(nome__icontains=q) | clientes.filter(email__icontains=q) | clientes.filter(cpf__icontains=q)
+
+    return render(
+        request,
+        "agendamentos/gerir_clientes.html",
+        {"clientes": clientes, "query": q},
+    )
+
+
+@login_required
+def criar_cliente(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para criar clientes.")
+        return redirect("agendamentos:painel")
+
+    if request.method == "POST":
+        nome = request.POST.get("nome", "").strip()
+        email = request.POST.get("email", "").strip()
+        telefone = request.POST.get("telefone", "").strip()
+        cpf = request.POST.get("cpf", "").strip() or None
+
+        if cpf and Cliente.objects.filter(cpf=cpf).exists():
+            messages.error(request, "Já existe um cliente com esse CPF.")
+        elif email and Cliente.objects.filter(email=email).exists():
+            messages.error(request, "Já existe um cliente com esse e-mail.")
+        else:
+            Cliente.objects.create(nome=nome, email=email, telefone=telefone, cpf=cpf)
+            messages.success(request, f"Cliente {nome} cadastrado com sucesso!")
+            return redirect("agendamentos:gerir_clientes")
+
+    return render(
+        request,
+        "agendamentos/criar_editar_cliente.html",
+        {"titulo": "Novo Cliente"},
+    )
+
+
+@login_required
+def editar_cliente(request, cliente_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para editar clientes.")
+        return redirect("agendamentos:painel")
+
+    cliente = get_object_or_404(Cliente, id=cliente_id)
+
+    if request.method == "POST":
+        cliente.nome = request.POST.get("nome", "").strip()
+        cliente.email = request.POST.get("email", "").strip()
+        cliente.telefone = request.POST.get("telefone", "").strip()
+        cliente.cpf = request.POST.get("cpf", "").strip() or None
+        try:
+            cliente.save()
+            messages.success(request, "Cliente atualizado com sucesso!")
+            return redirect("agendamentos:gerir_clientes")
+        except Exception as e:
+            messages.error(request, f"Erro ao atualizar cliente: {e}")
+
+    return render(
+        request,
+        "agendamentos/criar_editar_cliente.html",
+        {"titulo": "Editar Cliente", "cliente": cliente},
+    )
+
+
+@login_required
+def excluir_cliente(request, cliente_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para excluir clientes.")
+        return redirect("agendamentos:painel")
+
+    cliente = get_object_or_404(Cliente, id=cliente_id)
+    if request.method == "POST":
+        nome = cliente.nome
+        cliente.delete()
+        messages.success(request, f"Cliente {nome} excluído com sucesso!")
+        return redirect("agendamentos:gerir_clientes")
+
+    return render(request, "agendamentos/excluir_cliente_confirm.html", {"cliente": cliente})
+
+
+# ============================================================
+# EXPORTS (CSV/PDF)
+# ============================================================
+
+@login_required
+def dashboard_export_csv(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para acessar esta página.")
+        return redirect("agendamentos:painel")
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="agendamentos_dashboard.csv"'
+
+    import csv
+    writer = csv.writer(response)
+    writer.writerow(["Serviço", "Cliente", "Data e Hora", "Status"])
+
+    agendamentos = Agendamento.objects.select_related("servico", "cliente").order_by("data_hora")
+    for ag in agendamentos:
+        writer.writerow([
+            ag.servico.nome if ag.servico else "—",
+            ag.cliente.nome if ag.cliente else "—",
+            timezone.localtime(ag.data_hora).strftime("%Y-%m-%d %H:%M"),
+            ag.status,
+        ])
+    return response
+
+
+@login_required
+def dashboard_export_pdf(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para acessar esta página.")
+        return redirect("agendamentos:painel")
+
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+        from reportlab.lib.styles import getSampleStyleSheet
+    except Exception:
+        messages.error(request, "Biblioteca 'reportlab' não instalada. Rode: pip install reportlab")
+        return redirect("agendamentos:dashboard")
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("Relatório de Agendamentos", styles["Title"]))
+    elements.append(Paragraph(timezone.now().strftime("Gerado em %d/%m/%Y %H:%M"), styles["Normal"]))
+    elements.append(Paragraph("<br/>", styles["Normal"]))
+
+    data = [["Serviço", "Cliente", "Data e Hora", "Status"]]
+    ags = Agendamento.objects.select_related("servico", "cliente").order_by("data_hora")
+    for ag in ags:
+        data.append([
+            ag.servico.nome if ag.servico else "—",
+            ag.cliente.nome if ag.cliente else "—",
+            timezone.localtime(ag.data_hora).strftime("%Y-%m-%d %H:%M"),
+            ag.status,
+        ])
+
+    table = Table(data)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+    ]))
+    elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    return HttpResponse(buffer, content_type="application/pdf")
+
+
+# ============================================================
+# STATS / APIs
+# ============================================================
+
+@login_required
+def stats(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para acessar esta página.")
+        return redirect("agendamentos:painel")
+
+    hoje = timezone.localdate()
+    inicio = hoje - timedelta(days=6)
+
+    qs = (
+        Agendamento.objects.filter(data_hora__date__gte=inicio, data_hora__date__lte=hoje)
+        .values("data_hora__date")
+        .annotate(count=Count("id"))
+        .order_by("data_hora__date")
+    )
+    datas = [(inicio + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    mapa = {item["data_hora__date"].strftime("%Y-%m-%d"): item["count"] for item in qs}
+    dados = [mapa.get(d, 0) for d in datas]
+
+    return render(request, "agendamentos/stats.html", {"datas": datas, "dados_grafico": dados})
+
+
+@login_required
+def api_agendamentos(request):
+    qs = Agendamento.objects.select_related("servico", "cliente").order_by("data_hora")
+    if not request.user.is_staff:
+        cliente = None
+        if request.user.email:
+            cliente = Cliente.objects.filter(email=request.user.email).first()
+        qs = qs.filter(cliente=cliente) if cliente else qs.none()
+
+    def palette(status: str):
+        s = (status or "").lower()
+        if s == "confirmado":
+            return {"color": "#16a34a", "textColor": "#ffffff", "borderColor": "#15803d"}
+        if s == "pendente":
+            return {"color": "#2563eb", "textColor": "#ffffff", "borderColor": "#1d4ed8"}
+        if s == "cancelado":
+            return {"color": "#dc2626", "textColor": "#ffffff", "borderColor": "#b91c1c"}
+        if s == "realizado":
+            return {"color": "#9333ea", "textColor": "#ffffff", "borderColor": "#7e22ce"}
+        return {"color": "#6b7280", "textColor": "#ffffff", "borderColor": "#4b5563"}
+
+    data = []
+    for ag in qs:
+        dur = ag.servico.duracao if ag.servico else 60
+        pal = palette(ag.status)
+        data.append({
+            "id": ag.id,
+            "title": f"{ag.servico.nome if ag.servico else 'Serviço'} - {ag.cliente.nome if ag.cliente else 'Cliente'}",
+            "start": timezone.localtime(ag.data_hora).isoformat(),
+            "end": timezone.localtime(ag.data_hora + timedelta(minutes=dur)).isoformat(),
+            "status": ag.status,
+            **pal,
             "extendedProps": {
-                "status": a.status,
-                "cliente_nome": a.cliente.nome if a.cliente else "",
-                "cliente_email": a.cliente.email if a.cliente else "",
-                "cliente_telefone": a.cliente.telefone if a.cliente else "",
-                "servico_nome": a.servico.nome if a.servico else "",
+                "status": ag.status,
+                "servico_nome": ag.servico.nome if ag.servico else "",
+                "servico_id": ag.servico.id if ag.servico else None,
+                "cliente_nome": ag.cliente.nome if ag.cliente else "",
+                "cliente_email": ag.cliente.email if ag.cliente else "",
+                "cliente_telefone": ag.cliente.telefone if ag.cliente else "",
             },
         })
+    return JsonResponse(data, safe=False)
 
-    return JsonResponse(eventos, safe=False)
 
-
-@require_GET
 @login_required
-def api_notificacao_proximo_agendamento(request: HttpRequest) -> JsonResponse:
-    agora = timezone.now()
+def api_notificacao_proximo_agendamento(request):
+    cliente = None
+    if request.user and request.user.email:
+        cliente = Cliente.objects.filter(email=request.user.email).first()
+
+    if not cliente:
+        return JsonResponse({"message": "Nenhuma notificação no momento."})
+
     proximo = (
-        Agendamento.objects.filter(data_hora__gte=agora, status__in=["Pendente", "Confirmado"])
+        Agendamento.objects.filter(
+            cliente=cliente,
+            data_hora__gte=timezone.now(),
+            status__in=["Pendente", "Confirmado"],
+        )
         .order_by("data_hora")
         .first()
     )
-    return JsonResponse({"has_next": bool(proximo)})
+
+    if proximo:
+        restante = proximo.data_hora - timezone.now()
+        if timedelta(0) < restante < timedelta(minutes=30):
+            msg = f"Seu próximo agendamento de {proximo.servico.nome if proximo.servico else 'Serviço'} é em {int(restante.total_seconds()//60)} minutos."
+            return JsonResponse({"message": msg})
+
+    return JsonResponse({"message": "Nenhuma notificação no momento."})
 
 
-@require_GET
 @login_required
-def api_horarios_disponiveis(request: HttpRequest) -> JsonResponse:
-    data_str = request.GET.get("data")
+def api_horarios_disponiveis(request):
+    """
+    Retorna horários de um dia.
+    - Se receber ?servico_id=..., usa a duração do serviço.
+    - Se NÃO receber, usa 60 min (compatível com o flyout do calendário).
+    Resposta inclui:
+      { "slots": [ {"hora":"09:00", "ocupado": false}, ... ],
+        "horarios": ["09:00","09:30", ...]  # apenas os livres (compat legada)
+      }
+    """
+    data_str = request.GET.get("data", "")
     if not data_str:
-        return JsonResponse({"slots": []})
+        return JsonResponse({"error": "Data inválida."}, status=400)
 
     try:
-        dia = datetime.strptime(data_str, "%Y-%m-%d").date()
+        data_sel = datetime.strptime(data_str, "%Y-%m-%d").date()
     except Exception:
-        return JsonResponse({"slots": []})
+        return JsonResponse({"error": "Data inválida."}, status=400)
 
-    inicio_hora = 9
-    fim_hora_exclusivo = 18
+    # duração: por serviço (se informado) ou 60
+    dur = 60
+    servico_id = request.GET.get("servico_id")
+    if servico_id:
+        try:
+            servico = get_object_or_404(Servico, id=int(servico_id))
+            dur = int(servico.duracao or 60)
+        except Exception:
+            dur = 60
+
+    horario_abre = time(9, 0)
+    horario_fecha = time(18, 0)
+    intervalo = 30
+
     slots = []
+    horarios_livres = []
 
-    di, df = _day_range_local(dia)
-    dia_qs = Agendamento.objects.filter(data_hora__gte=di, data_hora__lt=df)
+    atual = datetime.combine(data_sel, horario_abre)
+    limite = datetime.combine(data_sel, horario_fecha)
+    now_local = timezone.localtime()
 
-    for h in range(inicio_hora, fim_hora_exclusivo):
-        dt = timezone.make_aware(datetime(dia.year, dia.month, dia.day, h, 0))
-        ocupado = dia_qs.filter(data_hora=dt).exists()
-        slots.append({"hora": f"{h:02d}:00", "ocupado": ocupado})
+    while atual + timedelta(minutes=dur) <= limite:
+        # bloqueia passado do dia atual
+        if data_sel == now_local.date() and atual <= now_local:
+            atual += timedelta(minutes=intervalo)
+            continue
 
-    return JsonResponse({"slots": slots})
+        conflito = Agendamento.objects.filter(
+            data_hora__date=data_sel,
+            data_hora__lt=atual + timedelta(minutes=dur),
+            data_hora__gte=atual - timedelta(minutes=dur),
+            status__in=["Pendente", "Confirmado"],
+        ).exists()
+
+        hora_txt = atual.strftime("%H:%M")
+        slots.append({"hora": hora_txt, "ocupado": bool(conflito)})
+        if not conflito:
+            horarios_livres.append(hora_txt)
+
+        atual += timedelta(minutes=intervalo)
+
+    return JsonResponse({"slots": slots, "horarios": horarios_livres})
 
 
-# ---------------------------------------------------------------------
-# Fluxo de agendamento
-# ---------------------------------------------------------------------
+# ============================================================
+# AGENDAMENTOS (fluxo)
+# ============================================================
+
 @login_required
-def agendar_servico(request: HttpRequest, servico_id: int) -> HttpResponse:
+def agendar_servico(request, servico_id: int):
     servico = get_object_or_404(Servico, id=servico_id)
-
-    data_str = request.GET.get("data")
-    dia = timezone.localdate()
-    if data_str:
-        try:
-            dia = datetime.strptime(data_str, "%Y-%m-%d").date()
-        except Exception:
-            pass
-
     if request.method == "POST":
-        hora = request.POST.get("hora")
-        if not hora:
-            return render(request, "agendamentos/agendar_servico.html", {"servico": servico, "dia": dia, "error_message": "Selecione um horário."})
+        form = AgendamentoForm(request.POST)
+        if form.is_valid():
+            raw = form.cleaned_data["data_hora_agendamento"]
+            try:
+                dt = timezone.make_aware(datetime.strptime(raw, "%Y-%m-%d %H:%M"))
+            except Exception:
+                messages.error(request, "Formato de data/hora inválido (use YYYY-MM-DD HH:MM).")
+                return render(request, "agendamentos/agendar_servico.html", {"servico": servico, "config": None, "form": form})
 
-        try:
-            hh, mm = map(int, hora.split(":"))
-            data_hora = timezone.make_aware(datetime(dia.year, dia.month, dia.day, hh, mm))
-        except Exception:
-            return render(request, "agendamentos/agendar_servico.html", {"servico": servico, "dia": dia, "error_message": "Horário inválido."})
+            if dt <= timezone.now():
+                messages.error(request, "Não é possível agendar em um horário que já passou.")
+                return render(request, "agendamentos/agendar_servico.html", {"servico": servico, "config": None, "form": form})
 
-        if data_hora < timezone.now():
-            return render(request, "agendamentos/agendar_servico.html", {"servico": servico, "dia": dia, "error_message": "Não é possível agendar no passado."})
+            conflito = Agendamento.objects.filter(
+                data_hora__date=dt.date(),
+                data_hora__lt=dt + timedelta(minutes=servico.duracao),
+                data_hora__gte=dt - timedelta(minutes=servico.duracao),
+                status__in=["Pendente", "Confirmado"],
+            ).exists()
+            if conflito:
+                messages.error(request, "Este horário não está mais disponível. Escolha outro.")
+                return render(request, "agendamentos/agendar_servico.html", {"servico": servico, "config": None, "form": form})
 
-        return redirect("agendamentos:confirmar_agendamento", servico_id=servico.id, year=data_hora.year, month=data_hora.month, day=data_hora.day, hour=data_hora.hour, minute=data_hora.minute)
+            cliente = Cliente.objects.filter(email=request.user.email).first()
 
-    whats_msg = f"Olá, gostaria de agendar o serviço {servico.nome} (R$ {servico.preco}) e saber mais informações."
-    whatsapp_interesse = f"https://wa.me/5571991806312?text={json.dumps(whats_msg, ensure_ascii=False)[1:-1]}"
-    return render(request, "agendamentos/agendar_servico.html", {"servico": servico, "dia": dia, "whatsapp_interesse": whatsapp_interesse})
+            ag = Agendamento.objects.create(
+                servico=servico,
+                cliente=cliente,
+                data_hora=dt,
+                status="Pendente",
+            )
+            messages.success(request, f"Agendamento #{ag.id} criado! Aguardando confirmação.")
+            return redirect("agendamentos:painel")
+    else:
+        form = AgendamentoForm()
+
+    return render(request, "agendamentos/agendar_servico.html", {"servico": servico, "config": None, "form": form})
 
 
 @login_required
-def confirmar_agendamento(request: HttpRequest, servico_id: int, year: int, month: int, day: int, hour: int, minute: int) -> HttpResponse:
+def confirmar_agendamento(request, servico_id: int, year: int, month: int, day: int, hour: int, minute: int):
     servico = get_object_or_404(Servico, id=servico_id)
     data_hora = timezone.make_aware(datetime(year, month, day, hour, minute))
 
-    if data_hora < timezone.now():
-        return render(request, "agendamentos/confirmar_agendamento.html", {"servico": servico, "data_hora": data_hora, "error_message": "Não é possível agendar no passado."})
+    if data_hora <= timezone.now():
+        messages.error(request, "Não é possível confirmar um agendamento que já passou.")
+        return redirect("agendamentos:agendar_servico", servico_id=servico.id)
 
-    clientes = Cliente.objects.all().order_by("nome")
+    conflito = Agendamento.objects.filter(
+        data_hora__date=data_hora.date(),
+        data_hora__lt=data_hora + timedelta(minutes=servico.duracao),
+        data_hora__gte=data_hora - timedelta(minutes=servico.duracao),
+        status__in=["Pendente", "Confirmado"],
+    ).exists()
+    if conflito:
+        messages.error(request, "Este horário não está mais disponível. Escolha outro.")
+        return redirect("agendamentos:agendar_servico", servico_id=servico.id)
 
     if request.method == "POST":
-        origem = request.POST.get("cliente_origem", "existente")
-        if origem == "existente":
-            cid = request.POST.get("cliente_id")
-            if not cid:
-                return render(request, "agendamentos/confirmar_agendamento.html", {"servico": servico, "data_hora": data_hora, "clientes": clientes, "error_message": "Selecione a cliente."})
-            cliente = get_object_or_404(Cliente, id=int(cid))
-        else:
-            form = ClienteForm(request.POST)
-            if not form.is_valid():
-                return render(request, "agendamentos/confirmar_agendamento.html", {"servico": servico, "data_hora": data_hora, "clientes": clientes, "form": form})
-            cliente = form.save()
-
-        Agendamento.objects.create(cliente=cliente, servico=servico, data_hora=data_hora, status="Confirmado")
-        messages.success(request, "Agendamento criado com sucesso!")
+        cliente = Cliente.objects.filter(email=request.user.email).first()
+        Agendamento.objects.create(
+            servico=servico,
+            cliente=cliente,
+            data_hora=data_hora,
+            status="Pendente",
+        )
+        messages.success(request, "Agendamento criado com sucesso! Aguardando confirmação.")
         return redirect("agendamentos:painel")
 
-    form = ClienteForm()
-    return render(request, "agendamentos/confirmar_agendamento.html", {"servico": servico, "data_hora": data_hora, "clientes": clientes, "form": form})
-
-
-# ---------------------------------------------------------------------
-# Gerenciamento
-# ---------------------------------------------------------------------
-@login_required
-def gerir_agendamentos(request: HttpRequest) -> HttpResponse:
-    data_str = request.GET.get("data")
-    dia = timezone.localdate()
-    if data_str:
-        try:
-            dia = datetime.strptime(data_str, "%Y-%m-%d").date()
-        except Exception:
-            pass
-
-    inicio = timezone.make_aware(datetime(dia.year, dia.month, dia.day, 0, 0))
-    fim = inicio + timedelta(days=1)
-    agendamentos = (
-        Agendamento.objects.select_related("cliente", "servico").filter(data_hora__gte=inicio, data_hora__lt=fim).order_by("data_hora")
-    )
-
-    return render(request, "agendamentos/gerir_agendamentos.html", {"agendamentos": agendamentos, "dia_selecionado": dia, "data": dia})
+    return render(request, "agendamentos/confirmar_agendamento.html", {"servico": servico, "data_hora": data_hora})
 
 
 @login_required
-@require_http_methods(["POST"])
-def atualizar_status_agendamento(request: HttpRequest, agendamento_id: int):
+def gerir_agendamentos(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para acessar esta página.")
+        return redirect("agendamentos:painel")
+
+    agendamentos = Agendamento.objects.select_related("servico", "cliente").order_by("data_hora")
+    return render(request, "agendamentos/gerir_agendamentos.html", {"agendamentos": agendamentos})
+
+
+@login_required
+def atualizar_status_agendamento(request, agendamento_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para realizar esta ação.")
+        return redirect("agendamentos:painel")
+
     ag = get_object_or_404(Agendamento, id=agendamento_id)
-
-    novo_status = request.POST.get("status")
-    status_validos = dict(Agendamento.STATUS_CHOICES)
-    if novo_status not in status_validos:
-        if request.headers.get("x-requested-with") == "XMLHttpRequest" or "application/json" in (request.headers.get("Accept") or ""):
-            return JsonResponse({"ok": False, "error": "Status inválido."}, status=400)
-        messages.error(request, "Status inválido.")
-        return redirect(reverse("agendamentos:gerir_agendamentos") + f"?data={ag.data_hora.date().isoformat()}")
-
-    ag.status = novo_status
-    ag.save(update_fields=["status"])
-    messages.success(request, f"Agendamento atualizado para: {novo_status}.")
-
-    if request.headers.get("x-requested-with") == "XMLHttpRequest" or "application/json" in (request.headers.get("Accept") or ""):
-        return JsonResponse({"ok": True, "status": ag.status})
-
-    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or reverse("agendamentos:gerir_agendamentos")
-    base = reverse("agendamentos:gerir_agendamentos")
-    if base in next_url:
-        next_url = base + f"?data={ag.data_hora.date().isoformat()}"
-    return redirect(next_url)
+    if request.method == "POST":
+        novo = request.POST.get("status", "")
+        if novo in [choice[0] for choice in Agendamento.STATUS_CHOICES]:
+            ag.status = novo
+            ag.save()
+            messages.success(request, f"Status do agendamento #{ag.id} atualizado para {novo}.")
+        else:
+            messages.error(request, "Status inválido.")
+    return redirect("agendamentos:gerir_agendamentos")
 
 
-# ---------------------------------------------------------------------
-# Serviços
-# ---------------------------------------------------------------------
+# ============================================================
+# SERVIÇOS
+# ============================================================
+
 @login_required
-def gerir_servicos(request: HttpRequest) -> HttpResponse:
-    servicos = list(Servico.objects.all().order_by("id"))
-    for s in servicos:
-        if getattr(s, "imagem", None):
-            try:
-                if not default_storage.exists(s.imagem.name):
-                    s.imagem = None
-            except Exception:
-                s.imagem = None
+def gerir_servicos(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para acessar esta página.")
+        return redirect("agendamentos:painel")
+
+    servicos = Servico.objects.all().order_by("nome")
     return render(request, "agendamentos/gerir_servicos.html", {"servicos": servicos})
 
 
+from .forms import ServicoForm
+
 @login_required
-def criar_servico(request: HttpRequest) -> HttpResponse:
+def criar_servico(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para criar serviços.")
+        return redirect("agendamentos:painel")
+
     if request.method == "POST":
         form = ServicoForm(request.POST, request.FILES)
         if form.is_valid():
-            servico = form.save()
-            crop_data = request.POST.get("cropped_image_data", "")
-            if crop_data:
-                _salvar_base64_no_servico(servico, crop_data)
-                messages.success(request, "Serviço criado e imagem recortada com sucesso!")
-                return redirect("agendamentos:gerir_servicos")
-            if request.FILES.get("imagem"):
-                messages.success(request, "Serviço criado! Agora recorte a imagem.")
-                return redirect("agendamentos:recortar_imagem_servico", servico.id)
+            servico = form.save(commit=False)
+
+            imagem_base64 = request.POST.get("imagem_base64")
+            if imagem_base64:
+                try:
+                    header, data64 = imagem_base64.split(";base64,")
+                    ext = header.split("/")[-1]
+                    data = base64.b64decode(data64)
+                    from django.core.files.base import ContentFile
+                    servico.imagem.save(f"servico_{servico.nome}.{ext}", ContentFile(data), save=False)
+                except Exception:
+                    pass
+
+            servico.save()
             messages.success(request, "Serviço criado com sucesso!")
             return redirect("agendamentos:gerir_servicos")
+        messages.error(request, "Erro ao criar serviço. Verifique os dados.")
     else:
         form = ServicoForm()
 
-    return render(request, "agendamentos/criar_editar_servico.html", {"form": form, "titulo_pagina": "Novo Serviço"})
+    return render(request, "agendamentos/criar_editar_servico.html", {"form": form, "servico": None})
 
 
 @login_required
-def editar_servico(request: HttpRequest, servico_id: int) -> HttpResponse:
+def editar_servico(request, servico_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para editar serviços.")
+        return redirect("agendamentos:painel")
+
     servico = get_object_or_404(Servico, id=servico_id)
 
     if request.method == "POST":
         form = ServicoForm(request.POST, request.FILES, instance=servico)
         if form.is_valid():
-            servico = form.save()
-            crop_data = request.POST.get("cropped_image_data", "")
-            if crop_data:
-                _salvar_base64_no_servico(servico, crop_data)
-                messages.success(request, "Serviço atualizado e imagem recortada com sucesso!")
-                return redirect("agendamentos:gerir_servicos")
-            if request.FILES.get("imagem"):
-                messages.success(request, "Serviço atualizado! Agora recorte a nova imagem.")
-                return redirect("agendamentos:recortar_imagem_servico", servico.id)
+            servico = form.save(commit=False)
+
+            imagem_base64 = request.POST.get("imagem_base64")
+            if imagem_base64:
+                try:
+                    header, data64 = imagem_base64.split(";base64,")
+                    ext = header.split("/")[-1]
+                    data = base64.b64decode(data64)
+                    from django.core.files.base import ContentFile
+                    servico.imagem.save(f"servico_{servico.nome}.{ext}", ContentFile(data), save=False)
+                except Exception:
+                    pass
+
+            servico.save()
             messages.success(request, "Serviço atualizado com sucesso!")
             return redirect("agendamentos:gerir_servicos")
+        messages.error(request, "Erro ao atualizar serviço. Verifique os dados.")
     else:
         form = ServicoForm(instance=servico)
 
-    return render(request, "agendamentos/criar_editar_servico.html", {"form": form, "titulo_pagina": "Editar Serviço"})
+    return render(request, "agendamentos/criar_editar_servico.html", {"form": form, "servico": servico})
 
 
 @login_required
-@require_http_methods(["POST"])
-def excluir_servico(request: HttpRequest, servico_id: int) -> HttpResponse:
+def excluir_servico(request, servico_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para excluir serviços.")
+        return redirect("agendamentos:painel")
+
     servico = get_object_or_404(Servico, id=servico_id)
-    servico.delete()
-    messages.success(request, "Serviço excluído.")
-    return redirect("agendamentos:gerir_servicos")
-
-
-@login_required
-@require_http_methods(["POST"])
-def remover_imagem_servico(request: HttpRequest, servico_id: int) -> HttpResponse:
-    servico = get_object_or_404(Servico, id=servico_id)
-    if servico.imagem:
-        try:
-            servico.imagem.delete(save=False)
-        except Exception:
-            pass
-        servico.imagem = None
-        servico.save(update_fields=["imagem"])
-    messages.success(request, "Imagem removida.")
-    return redirect("agendamentos:editar_servico", servico.id)
-
-
-@login_required
-@require_http_methods(["GET", "POST"])
-def recortar_imagem_servico(request: HttpRequest, servico_id: int) -> HttpResponse:
-    servico = get_object_or_404(Servico, id=servico_id)
-
     if request.method == "POST":
-        data_url = request.POST.get("cropData", "")
-        if not data_url:
-            messages.error(request, "Nenhum recorte foi enviado.")
-            return redirect("agendamentos:recortar_imagem_servico", servico.id)
-        try:
-            _salvar_base64_no_servico(servico, data_url)
-        except Exception:
-            messages.error(request, "Não foi possível processar a imagem.")
-            return redirect("agendamentos:recortar_imagem_servico", servico.id)
-
-        messages.success(request, "Imagem atualizada com sucesso!")
+        servico.delete()
+        messages.success(request, "Serviço excluído com sucesso!")
         return redirect("agendamentos:gerir_servicos")
 
-    imagem_url = servico.imagem.url if servico.imagem else ""
-    return render(request, "agendamentos/recortar_imagem_servico.html", {"servico": servico, "imagem_url": imagem_url})
-
-
-# ---------------------------------------------------------------------
-# Clientes
-# ---------------------------------------------------------------------
-@login_required
-def gerir_clientes(request: HttpRequest) -> HttpResponse:
-    q = (request.GET.get("q") or "").strip()
-    clientes = Cliente.objects.all().order_by("id")
-    if q:
-        clientes = clientes.filter(Q(nome__icontains=q) | Q(email__icontains=q) | Q(telefone__icontains=q))
-    return render(request, "agendamentos/gerir_clientes.html", {"clientes": clientes, "query": q})
+    return render(request, "agendamentos/excluir_servico_confirm.html", {"servico": servico})
 
 
 @login_required
-def editar_cliente(request: HttpRequest, cliente_id: int) -> HttpResponse:
-    cliente = get_object_or_404(Cliente, id=cliente_id)
+def remover_imagem_servico(request, servico_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para remover imagens.")
+        return redirect("agendamentos:painel")
+
+    servico = get_object_or_404(Servico, id=servico_id)
     if request.method == "POST":
-        form = ClienteForm(request.POST, instance=cliente)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Cliente atualizado.")
-            return redirect("agendamentos:gerir_clientes")
-    else:
-        form = ClienteForm(instance=cliente)
-    return render(request, "agendamentos/editar_cliente.html", {"form": form})
+        if servico.imagem:
+            servico.imagem.delete(save=False)
+            servico.save()
+            messages.success(request, "Imagem principal removida com sucesso!")
+        else:
+            messages.info(request, "Nenhuma imagem principal para remover.")
+    return redirect("agendamentos:editar_servico", servico_id=servico.id)
 
 
 @login_required
-@require_http_methods(["POST"])
-def excluir_cliente(request: HttpRequest, cliente_id: int) -> HttpResponse:
-    cliente = get_object_or_404(Cliente, id=cliente_id)
-    cliente.delete()
-    messages.success(request, "Cliente excluído.")
-    return redirect("agendamentos:gerir_clientes")
+def recortar_imagem_servico(request, servico_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para recortar imagens.")
+        return redirect("agendamentos:painel")
+
+    servico = get_object_or_404(Servico, id=servico_id)
+
+    if request.method == "POST":
+        cropped = request.POST.get("cropped_image_data")
+        if not cropped:
+            messages.error(request, "Dados da imagem recortada não recebidos.")
+            return redirect("agendamentos:editar_servico", servico_id=servico.id)
+        try:
+            header, data64 = cropped.split(";base64,")
+            ext = header.split("/")[-1]
+            data = base64.b64decode(data64)
+            from django.core.files.base import ContentFile
+            servico.imagem.save(f"servico_{servico.nome}_crop.{ext}", ContentFile(data), save=True)
+            messages.success(request, "Imagem recortada e salva com sucesso!")
+        except Exception as e:
+            messages.error(request, f"Erro ao recortar/salvar imagem: {e}")
+        return redirect("agendamentos:editar_servico", servico_id=servico.id)
+
+    return render(request, "agendamentos/recortar_imagem_servico.html", {"servico": servico})
+
+
+# ============================================================
+# IMAGENS ADICIONAIS (opcional)
+# ============================================================
+
+@login_required
+def adicionar_imagens_adicionais(request, servico_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para adicionar imagens.")
+        return redirect("agendamentos:painel")
+
+    if ServicoImagem is None:
+        messages.error(request, "O recurso de imagens adicionais não está disponível (modelo ausente).")
+        return redirect("agendamentos:editar_servico", servico_id=servico_id)
+
+    servico = get_object_or_404(Servico, id=servico_id)
+    if request.method == "POST":
+        imagens = request.FILES.getlist("imagens_adicionais")
+        if not imagens:
+            messages.error(request, "Nenhuma imagem selecionada para upload.")
+            return redirect("agendamentos:editar_servico", servico_id=servico.id)
+
+        existentes = ServicoImagem.objects.filter(servico=servico).count()
+        disponiveis = max(0, 5 - existentes)
+        for f in imagens[:disponiveis]:
+            ServicoImagem.objects.create(servico=servico, imagem=f)
+        if len(imagens) > disponiveis:
+            messages.warning(request, "Limite de 5 imagens adicionais por serviço.")
+        else:
+            messages.success(request, f"{min(len(imagens), disponiveis)} imagens adicionadas ao serviço {servico.nome}!")
+    return redirect("agendamentos:editar_servico", servico_id=servico.id)
+
+
+@login_required
+def remover_imagem_adicional(request, imagem_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para remover imagens.")
+        return redirect("agendamentos:painel")
+
+    if ServicoImagem is None:
+        messages.error(request, "O recurso de imagens adicionais não está disponível (modelo ausente).")
+        return redirect("agendamentos:painel")
+
+    img = get_object_or_404(ServicoImagem, id=imagem_id)
+    servico_id = img.servico.id
+    if request.method == "POST":
+        img.imagem.delete(save=False)
+        img.delete()
+        messages.success(request, "Imagem adicional removida com sucesso!")
+    return redirect("agendamentos:editar_servico", servico_id=servico_id)
+
+
+# ============================================================
+# RESULTADOS (painel - staff)
+# ============================================================
+
+@login_required
+def gerir_resultados(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para acessar esta página.")
+        return redirect("agendamentos:painel")
+    resultados = ResultadoAluna.objects.all().order_by("ordem", "-criado_em")
+    return render(request, "agendamentos/gerir_resultados.html", {"resultados": resultados})
+
+
+@login_required
+def criar_resultado(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para criar.")
+        return redirect("agendamentos:painel")
+    if request.method == "POST":
+        nome = request.POST.get("nome_aluna", "").strip()
+        tecnica = request.POST.get("tecnica", "").strip()
+        ativo = request.POST.get("ativo") == "on"
+        foto = request.FILES.get("foto")
+        ordem = int(request.POST.get("ordem") or 0)
+        if not (nome and tecnica and foto):
+            messages.error(request, "Preencha nome, técnica e selecione a foto.")
+        else:
+            ResultadoAluna.objects.create(
+                nome_aluna=nome, tecnica=tecnica, foto=foto, ativo=ativo, ordem=ordem
+            )
+            messages.success(request, "Resultado criado!")
+            return redirect("agendamentos:gerir_resultados")
+    return render(request, "agendamentos/criar_editar_resultado.html", {"titulo": "Novo Resultado", "obj": None})
+
+
+@login_required
+def editar_resultado(request, resultado_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para editar.")
+        return redirect("agendamentos:painel")
+    obj = get_object_or_404(ResultadoAluna, id=resultado_id)
+    if request.method == "POST":
+        obj.nome_aluna = request.POST.get("nome_aluna", "").strip()
+        obj.tecnica = request.POST.get("tecnica", "").strip()
+        obj.ativo = request.POST.get("ativo") == "on"
+        obj.ordem = int(request.POST.get("ordem") or 0)
+        if request.FILES.get("foto"):
+            obj.foto = request.FILES["foto"]
+        obj.save()
+        messages.success(request, "Resultado atualizado!")
+        return redirect("agendamentos:gerir_resultados")
+    return render(request, "agendamentos/criar_editar_resultado.html", {"titulo": "Editar Resultado", "obj": obj})
+
+
+@login_required
+def excluir_resultado(request, resultado_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para excluir.")
+        return redirect("agendamentos:painel")
+    obj = get_object_or_404(ResultadoAluna, id=resultado_id)
+    if request.method == "POST":
+        obj.delete()
+        messages.success(request, "Resultado excluído!")
+        return redirect("agendamentos:gerir_resultados")
+    return render(request, "agendamentos/excluir_resultado_confirm.html", {"obj": obj})
+
+
+# ============================================================
+# PROVA SOCIAL (painel - staff) — SEPARADO
+# ============================================================
+
+@login_required
+def gerir_provas(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para acessar esta página.")
+        return redirect("agendamentos:painel")
+    provas = ProvaSocial.objects.all().order_by("ordem", "-criado_em")
+    return render(request, "agendamentos/gerir_provas.html", {"provas": provas})
+
+
+@login_required
+def criar_prova(request):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para criar.")
+        return redirect("agendamentos:painel")
+    if request.method == "POST":
+        legenda = request.POST.get("legenda", "").strip()
+        ativo = request.POST.get("ativo") == "on"
+        ordem = int(request.POST.get("ordem") or 0)
+        imagem = request.FILES.get("imagem")
+        if not imagem:
+            messages.error(request, "Selecione a imagem (print do feedback).")
+        else:
+            ProvaSocial.objects.create(imagem=imagem, legenda=legenda, ativo=ativo, ordem=ordem)
+            messages.success(request, "Prova social criada!")
+            return redirect("agendamentos:gerir_provas")
+    return render(request, "agendamentos/criar_editar_prova.html", {"titulo": "Nova Prova Social", "obj": None})
+
+
+@login_required
+def editar_prova(request, prova_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para editar.")
+        return redirect("agendamentos:painel")
+    obj = get_object_or_404(ProvaSocial, id=prova_id)
+    if request.method == "POST":
+        obj.legenda = request.POST.get("legenda", "").strip()
+        obj.ativo = request.POST.get("ativo") == "on"
+        obj.ordem = int(request.POST.get("ordem") or 0)
+        if request.FILES.get("imagem"):
+            obj.imagem = request.FILES["imagem"]
+        obj.save()
+        messages.success(request, "Prova social atualizada!")
+        return redirect("agendamentos:gerir_provas")
+    return render(request, "agendamentos/criar_editar_prova.html", {"titulo": "Editar Prova Social", "obj": obj})
+
+
+@login_required
+def excluir_prova(request, prova_id: int):
+    if not request.user.is_staff:
+        messages.error(request, "Você não tem permissão para excluir.")
+        return redirect("agendamentos:painel")
+    obj = get_object_or_404(ProvaSocial, id=prova_id)
+    if request.method == "POST":
+        obj.delete()
+        messages.success(request, "Prova social excluída!")
+        return redirect("agendamentos:gerir_provas")
+    return render(request, "agendamentos/excluir_prova_confirm.html", {"obj": obj})

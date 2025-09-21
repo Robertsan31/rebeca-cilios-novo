@@ -1,0 +1,78 @@
+{% extends "agendamentos/base_publica.html" %}
+{% load static %}
+
+{% block title %}Resultados das Alunas{% endblock %}
+
+{% block content %}
+<section class="container py-5">
+  <header class="d-flex flex-wrap justify-content-between align-items-end mb-4">
+    <div>
+      <h1 class="display-5 mb-1">Resultados das Alunas</h1>
+      <p class="text-muted mb-0">Trabalhos enviados por quem concluiu o curso. Clique para ampliar.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'lista_servicos' %}" class="btn btn-outline-secondary">Nossos Serviços</a>
+      <a href="{% url 'resultados_alunas' %}" class="btn btn-primary">Resultados das Alunas</a>
+    </div>
+  </header>
+
+  <div class="row g-4">
+    {% for r in resultados %}
+      <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card h-100 shadow-sm" style="border:1px solid #eee">
+          <a href="#" class="js-open" data-src="{{ r.foto.url }}" data-caption="{{ r.nome_aluna }} • {{ r.tecnica }}">
+            <img src="{{ r.foto.url }}" class="card-img-top" alt="{{ r.nome_aluna }}" style="height:280px;object-fit:cover">
+          </a>
+          <div class="card-body">
+            <h5 class="card-title mb-1">{{ r.nome_aluna }}</h5>
+            <small class="text-muted">Técnica: {{ r.tecnica }}</small>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="col-12">
+        <div class="alert alert-info">Ainda não há resultados publicados.</div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- Modal de visualização -->
+<div class="modal fade" id="viewer" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:rgba(0,0,0,.92);color:#fff;border:0">
+      <div class="modal-header border-0">
+        <div id="cap" class="fw-semibold"></div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter:invert(1)"></button>
+      </div>
+      <div class="modal-body d-flex justify-content-center align-items-center" style="min-height:60vh">
+        <img id="big" alt="" style="max-width:92vw;max-height:80vh;object-fit:contain;border-radius:10px">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  const modal = new bootstrap.Modal(document.getElementById('viewer'));
+  const big = document.getElementById('big');
+  const cap = document.getElementById('cap');
+
+  document.querySelectorAll('.js-open').forEach(el=>{
+    el.addEventListener('click', e=>{
+      e.preventDefault();
+      big.src = el.dataset.src;
+      cap.textContent = el.dataset.caption || '';
+      modal.show();
+    });
+  });
+
+  document.getElementById('viewer').addEventListener('hidden.bs.modal', ()=>{
+    big.removeAttribute('src');
+    cap.textContent = '';
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "agendamentos/base.html" %}
+{% load static %}
+
+{% block title %}Gerir Prova Social • Painel{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h3 class="m-0">Prova Social (feedbacks)</h3>
+  <a href="{% url 'agendamentos:criar_prova' %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Nova Prova
+  </a>
+</div>
+
+{% if provas %}
+  <div class="row g-3">
+    {% for p in provas %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100">
+          {% if p.imagem %}
+            <img src="{{ p.imagem.url }}" class="card-img-top" alt="Prova Social" style="height:220px;object-fit:cover;">
+          {% else %}
+            <div class="bg-light" style="height:220px;display:grid;place-items:center;">Sem imagem</div>
+          {% endif %}
+          <div class="card-body">
+            <div class="small text-muted">Ordem: {{ p.ordem|default:"—" }}</div>
+            <p class="mb-2">{{ p.legenda|default:"—" }}</p>
+            <span class="badge {{ p.ativo|yesno:'bg-success,bg-secondary' }}">
+              {{ p.ativo|yesno:'Ativo,Inativo' }}
+            </span>
+          </div>
+          <div class="card-footer bg-white d-flex gap-2">
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'agendamentos:editar_prova' p.id %}">
+              <i class="bi bi-pencil"></i> Editar
+            </a>
+            <a class="btn btn-sm btn-outline-danger" href="{% url 'agendamentos:excluir_prova' p.id %}">
+              <i class="bi bi-trash"></i> Excluir
+            </a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="alert alert-info">Nenhum feedback cadastrado ainda.</div>
+{% endif %}
+{% endblock %}

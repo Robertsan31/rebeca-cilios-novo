@@ -12,13 +12,13 @@
   .service-card{ transition:transform .3s, box-shadow .3s; border:1px solid #f0e8d9; }
   .service-card:hover{ transform:translateY(-6px); box-shadow:0 12px 24px rgba(140,108,33,.15)!important; }
 
+  /* carousel em cada card (continua auto-play no card) */
+  .service-carousel{ border-bottom:1px solid #f0e8d9; }
   .service-img{
-    width:100%;
-    height:220px;
-    object-fit:cover;
-    object-position:center;
-    display:block;
+    width:100%; height:220px; object-fit:cover; object-position:center;
+    display:block; cursor: zoom-in;
   }
+  .carousel-indicators [data-bs-target]{ width:8px; height:8px; border-radius:50%; }
 
   .btn-outline-custom{ color:#8c6c21; border-color:#8c6c21; font-weight:500; }
   .btn-outline-custom:hover{ background:#8c6c21; color:#fff; }
@@ -27,11 +27,41 @@
   body.dark-mode .btn-outline-custom{ color:#ffe395; border-color:#ffe395; }
   body.dark-mode .btn-outline-custom:hover{ background:#ffe395; color:#232525; }
 
-  #fotoModal .modal-dialog{ max-width:95vw; }
-  #fotoModal .modal-content{ background: rgba(0,0,0,.85); border-radius:12px; border:0; }
-  #fotoModal .modal-body{ padding:0; display:flex; align-items:center; justify-content:center; }
-  #fotoModal img{ max-width:92vw; max-height:86vh; object-fit:contain; }
-  #fotoModal .btn-close{ position:absolute; right:10px; top:10px; filter:invert(1); }
+  /* -------- Modal "modo galeria" (sem carousel) -------- */
+  #galeriaModal .modal-dialog{ max-width:96vw; }
+  #galeriaModal .modal-content{ background: rgba(0,0,0,.92); border-radius:12px; border:0; color:#fff; }
+  #galeriaModal .modal-header{ border:0; }
+  #galeriaModal .btn-close{ filter:invert(1); }
+
+  .gallery-stage{
+    position:relative; display:flex; align-items:center; justify-content:center;
+    min-height:70vh; padding:8px;
+  }
+  .gallery-stage img{
+    max-width:92vw; max-height:80vh; object-fit:contain; border-radius:8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.45);
+    transition: opacity .25s ease;
+  }
+  .fade-in{ opacity:0; } .fade-in.show{ opacity:1; }
+
+  .nav-arrow{
+    position:absolute; top:50%; transform:translateY(-50%);
+    border:0; background: rgba(255,255,255,.18); color:#fff;
+    width:44px; height:44px; border-radius:999px; display:flex; align-items:center; justify-content:center;
+  }
+  .nav-arrow:hover{ background: rgba(255,255,255,.28); }
+  .nav-prev{ left:10px; } .nav-next{ right:10px; }
+
+  /* Miniaturas */
+  .thumbs-bar{ background: rgba(255,255,255,.06); border-top:1px solid rgba(255,255,255,.1); }
+  .thumbs-wrap{ gap:.5rem; overflow-x:auto; padding:.6rem .8rem; display:flex; align-items:center; }
+  .thumb{ width:84px; height:64px; border-radius:8px; overflow:hidden; flex:0 0 auto; border:2px solid transparent; cursor:pointer; opacity:.8; }
+  .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .thumb.active{ border-color:#ffe395; opacity:1; }
+
+  .counter-badge{
+    background:rgba(0,0,0,.45); color:#fff; border-radius:999px; padding:.25rem .6rem; font-weight:600;
+  }
 </style>
 {% endblock %}
 
@@ -44,20 +74,50 @@
 
   <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
     {% for servico in servicos %}
+    {% with imgs=servico.imagens_adicionais.all %}
     <div class="col">
       <div class="card h-100 shadow-sm service-card">
 
-        {% if servico.imagem %}
-          <img src="{{ servico.imagem.url }}"
-               alt="{{ servico.nome }}"
-               class="card-img-top service-img js-open-full"
-               data-fullsrc="{{ servico.imagem.url }}">
-        {% else %}
-          <img src="{% static 'agendamentos/img/placeholder.png' %}"
-               alt="Sem imagem"
-               class="card-img-top service-img js-open-full"
-               data-fullsrc="{% static 'agendamentos/img/placeholder.png' %}">
-        {% endif %}
+        <!-- CARROSSEL SÓ NO CARD (continua) -->
+        <div id="svcCarousel{{ servico.id }}" class="carousel slide service-carousel" data-service="{{ servico.id }}">
+          <div class="carousel-inner">
+            {% if servico.imagem %}
+              <div class="carousel-item active">
+                <img src="{{ servico.imagem.url }}" alt="{{ servico.nome }}" class="service-img js-open-gallery" data-service="{{ servico.id }}">
+              </div>
+            {% else %}
+              <div class="carousel-item active">
+                <img src="{% static 'agendamentos/img/placeholder.png' %}" alt="Sem imagem" class="service-img js-open-gallery" data-service="{{ servico.id }}">
+              </div>
+            {% endif %}
+            {% for img in imgs %}
+              <div class="carousel-item">
+                <img src="{{ img.imagem.url }}" alt="{{ servico.nome }} imagem {{ forloop.counter }}" class="service-img js-open-gallery" data-service="{{ servico.id }}">
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="carousel-indicators">
+            <button type="button" data-bs-target="#svcCarousel{{ servico.id }}" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+            {% for img in imgs %}
+              <button type="button" data-bs-target="#svcCarousel{{ servico.id }}" data-bs-slide-to="{{ forloop.counter }}" aria-label="Slide {{ forloop.counter|add:1 }}"></button>
+            {% endfor %}
+          </div>
+          <button class="carousel-control-prev" type="button" data-bs-target="#svcCarousel{{ servico.id }}" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Anterior</span>
+          </button>
+          <button class="carousel-control-next" type="button" data-bs-target="#svcCarousel{{ servico.id }}" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Próxima</span>
+          </button>
+        </div>
+
+        <!-- URLs p/ galeria -->
+        <div id="svc-data-{{ servico.id }}" class="d-none">
+          {% if servico.imagem %}<span data-src="{{ servico.imagem.url }}"></span>{% else %}<span data-src="{% static 'agendamentos/img/placeholder.png' %}"></span>{% endif %}
+          {% for img in imgs %}<span data-src="{{ img.imagem.url }}"></span>{% endfor %}
+        </div>
 
         <div class="card-body d-flex flex-column">
           <h5 class="card-title h4 font-serif-display">{{ servico.nome }}</h5>
@@ -69,15 +129,21 @@
         </div>
 
         <div class="card-footer bg-transparent border-0 pb-3">
-          <a class="btn btn-outline-custom rounded-pill w-100"
-             href="https://wa.me/5571991806312?text={{ 'Olá! Gostaria de agendar o serviço ' |add:servico.nome|urlencode }}"
-             target="_blank">
-            Agendar Serviço
-          </a>
+          <div class="d-grid gap-2">
+            <button class="btn btn-outline-secondary rounded-pill js-open-gallery" data-service="{{ servico.id }}">
+              Ver fotos (modo galeria)
+            </button>
+            <a class="btn btn-outline-custom rounded-pill"
+               href="https://wa.me/5571991806312?text={{ 'Olá! Gostaria de agendar o serviço ' |add:servico.nome|urlencode }}"
+               target="_blank">
+              Agendar Serviço
+            </a>
+          </div>
         </div>
 
       </div>
     </div>
+    {% endwith %}
     {% empty %}
       <div class="col-12">
         <div class="alert alert-info">Nenhum serviço disponível no momento.</div>
@@ -86,13 +152,35 @@
   </div>
 </div>
 
-<!-- Modal de foto -->
-<div class="modal fade" id="fotoModal" tabindex="-1" aria-hidden="true">
+<!-- Modal Galeria (sem carousel; imagens se sobrepõem) -->
+<div class="modal fade" id="galeriaModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <span class="counter-badge me-2" id="gal-count">1/1</span>
+          Galeria de Fotos
+        </h5>
+        <div class="d-flex align-items-center gap-2 me-2">
+          <button type="button" class="btn btn-sm btn-outline-light" id="btn-fullscreen">
+            <i class="bi bi-arrows-fullscreen me-1"></i>Tela cheia
+          </button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+      </div>
       <div class="modal-body">
-        <img id="modal-img" alt="Foto do serviço">
+        <div class="gallery-stage">
+          <button type="button" class="nav-arrow nav-prev" id="btn-prev" aria-label="Anterior">
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <img id="gal-main" alt="Foto do serviço" class="fade-in">
+          <button type="button" class="nav-arrow nav-next" id="btn-next" aria-label="Próxima">
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
+        <div class="thumbs-bar">
+          <div class="thumbs-wrap" id="thumbs-wrap"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -101,20 +189,112 @@
 
 {% block extra_js %}
 <script>
-  document.addEventListener('DOMContentLoaded', function(){
-    const modalEl  = document.getElementById('fotoModal');
-    const modalImg = document.getElementById('modal-img');
-    const bsModal  = new bootstrap.Modal(modalEl);
+  // ---- util ----
+  function buildUrls(serviceId){
+    const holder = document.getElementById('svc-data-' + serviceId);
+    return holder ? Array.from(holder.querySelectorAll('[data-src]')).map(n => n.getAttribute('data-src')).filter(Boolean) : [];
+  }
+  function toggleFullscreen(el){
+    const d = document;
+    if (!d.fullscreenElement && el.requestFullscreen){ el.requestFullscreen(); }
+    else if (d.exitFullscreen){ d.exitFullscreen(); }
+  }
+  function preload(src){ const i=new Image(); i.src=src; return i; }
 
-    document.querySelectorAll('.js-open-full').forEach(img=>{
-      img.addEventListener('click', (e)=>{
+  // ---- estado da galeria ----
+  const state = { urls: [], idx: 0 };
+  const imgEl = ()=> document.getElementById('gal-main');
+  const thumbsEl = ()=> document.getElementById('thumbs-wrap');
+  const countEl = ()=> document.getElementById('gal-count');
+
+  function render(idx){
+    if(state.urls.length===0) return;
+    if(idx<0) idx = state.urls.length-1;
+    if(idx>=state.urls.length) idx = 0;
+    state.idx = idx;
+
+    // pré-carrega próxima e anterior
+    preload(state.urls[(idx+1)%state.urls.length]);
+    preload(state.urls[(idx-1+state.urls.length)%state.urls.length]);
+
+    // troca a imagem sobrepondo (fade)
+    const el = imgEl();
+    el.classList.remove('show');
+    el.classList.add('fade-in');
+    const nextSrc = state.urls[idx];
+    // espera um tick para o fade funcionar
+    setTimeout(()=>{
+      el.src = nextSrc;
+      // garante mostrar após carregar
+      if (el.complete) el.classList.add('show');
+      else el.onload = ()=> el.classList.add('show');
+    }, 10);
+
+    // contador
+    countEl().textContent = `${idx+1}/${state.urls.length}`;
+
+    // ativa thumb
+    Array.from(thumbsEl().children).forEach((t,i)=> t.classList.toggle('active', i===idx));
+  }
+
+  function openGallery(urls){
+    state.urls = urls.length ? urls : ['{% static "agendamentos/img/placeholder.png" %}'];
+    state.idx = 0;
+
+    // monta thumbs
+    const wrap = thumbsEl();
+    wrap.innerHTML = '';
+    state.urls.forEach((src,i)=>{
+      const th = document.createElement('div');
+      th.className = 'thumb' + (i===0?' active':'');
+      th.innerHTML = `<img src="${src}" alt="thumb ${i+1}">`;
+      th.addEventListener('click', ()=> render(i));
+      wrap.appendChild(th);
+    });
+
+    render(0);
+    new bootstrap.Modal(document.getElementById('galeriaModal')).show();
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    // autoplay do card (permanece)
+    document.querySelectorAll('.service-carousel').forEach(el=>{
+      const total = el.querySelectorAll('.carousel-item').length;
+      if(total <= 1){
+        el.querySelectorAll('.carousel-indicators, .carousel-control-prev, .carousel-control-next').forEach(n=>n.classList.add('d-none'));
+      }
+      new bootstrap.Carousel(el, { interval: 3500, ride: total>1 ? 'carousel' : false, pause: false, touch: true, wrap: true });
+    });
+
+    // abrir galeria
+    document.querySelectorAll('.js-open-gallery').forEach(el=>{
+      el.addEventListener('click', function(e){
         e.preventDefault();
-        modalImg.src = img.dataset.fullsrc || img.src;
-        bsModal.show();
+        const id = this.getAttribute('data-service');
+        const urls = buildUrls(id);
+        openGallery(urls);
       });
     });
 
-    modalEl.addEventListener('hidden.bs.modal', ()=>{ modalImg.removeAttribute('src'); });
+    // navegação
+    document.getElementById('btn-next').addEventListener('click', ()=> render(state.idx+1));
+    document.getElementById('btn-prev').addEventListener('click', ()=> render(state.idx-1));
+    imgEl().addEventListener('click', ()=> render(state.idx+1)); // clique na foto vai para próxima
+    document.getElementById('btn-fullscreen').addEventListener('click',()=> toggleFullscreen(document.querySelector('#galeriaModal .modal-content')));
+
+    // teclado quando o modal está aberto
+    const gModal = document.getElementById('galeriaModal');
+    gModal.addEventListener('shown.bs.modal', ()=>{
+      function handler(e){ if(e.key==='ArrowRight') render(state.idx+1); if(e.key==='ArrowLeft') render(state.idx-1); }
+      document.addEventListener('keydown', handler);
+      gModal.addEventListener('hidden.bs.modal', ()=> document.removeEventListener('keydown', handler), {once:true});
+    });
+
+    // limpar ao fechar
+    gModal.addEventListener('hidden.bs.modal', ()=>{
+      thumbsEl().innerHTML = '';
+      imgEl().removeAttribute('src');
+    });
   });
 </script>
 {% endblock %}

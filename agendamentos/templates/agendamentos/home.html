@@ -182,6 +182,156 @@ document.addEventListener("DOMContentLoaded",function(){
       </div>
     </div>
   </section>
+
+  <!-- PROVA SOCIAL -->
+  <section id="prova-social" class="py-5">
+    <style>
+      #prova-social .title{ text-align:center; margin-bottom: .75rem; color:#8c6c21 }
+      #prova-social .muted{ text-align:center; color:#6b6b6b; margin-bottom:1.75rem }
+
+      /* grid */
+      #prova-social .grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px }
+      #prova-social .col{ grid-column:span 12 }
+      @media (min-width:720px){ #prova-social .col{ grid-column:span 6 } }
+      @media (min-width:992px){ #prova-social .col{ grid-column:span 3 } }
+
+      /* Cartão com borda animada + brilhos */
+      @property --angle{syntax:"<angle>"; initial-value:0deg; inherits:false}
+      @keyframes spin{to{--angle:360deg}}
+      @keyframes twinkle{0%,100%{opacity:0; transform:translateY(0) scale(.6)}
+                         15%{opacity:1; transform:translateY(-2px) scale(1)} 60%{opacity:.35}}
+
+      #prova-social .ps-card{
+        position:relative; display:block; border-radius:14px; overflow:hidden; text-decoration:none;
+        border:2px solid transparent;
+        background:
+          linear-gradient(#fff,#fff) padding-box,
+          conic-gradient(from var(--angle), #ffd86b, #ffb347, #ffe7a6, #e6d6ff, #ffd86b) border-box;
+        box-shadow:0 8px 24px rgba(0,0,0,.08);
+        animation:spin 8s linear infinite;
+      }
+      #prova-social .ps-card:hover{ animation-duration:4s }
+      #prova-social .ps-thumb{ width:100%; aspect-ratio:3/5; object-fit:cover; display:block; background:#f4f4f4 }
+      #prova-social .ps-caption{ padding:10px 12px; background:#fff; color:#444 }
+      #prova-social .sparkle{
+        position:absolute; width:7px; height:7px; left:0; top:0; pointer-events:none; z-index:2;
+        background:radial-gradient(circle,#fff,#ffe9a8 60%,transparent 70%);
+        filter:drop-shadow(0 0 8px #fff8); border-radius:50%; mix-blend-mode:screen; opacity:0;
+        animation:twinkle 3s ease-in-out infinite;
+      }
+
+      /* Modal simples */
+      #psOverlay{ position:fixed; inset:0; background:rgba(0,0,0,.92); display:none;
+                  align-items:center; justify-content:center; z-index:1055 }
+      #psOverlay.open{ display:flex }
+      #psOverlay .frame{
+        padding:3px; border-radius:10px; border:2px solid transparent;
+        background:
+          linear-gradient(#0000,#0000) padding-box,
+          conic-gradient(from var(--angle), #ffd86b, #ffb347, #ffe7a6, #e6d6ff, #ffd86b) border-box;
+        animation:spin 8s linear infinite;
+      }
+      #psOverlay img{ max-width:96vw; max-height:88vh; object-fit:contain; display:block; border-radius:8px; background:#000 }
+      #psOverlay .close, #psOverlay .navbtn{
+        position:fixed; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35);
+        color:#fff; padding:8px 10px; border-radius:10px; backdrop-filter:blur(4px); cursor:pointer
+      }
+      #psOverlay .close{ top:14px; right:14px }
+      #psOverlay .navbtn{ top:50%; transform:translateY(-50%) }
+      #psOverlay .navbtn.left{ left:14px }
+      #psOverlay .navbtn.right{ right:14px }
+    </style>
+
+    <div class="container">
+      <h2 class="title">Prova Social</h2>
+      <div class="muted">Feedbacks reais das clientes e alunas 💖</div>
+
+      <div class="grid" id="psGrid">
+        {% if provas %}
+          {% for p in provas %}
+            <div class="col">
+              <a href="#" class="ps-card js-ps-open" data-full="{{ p.imagem.url }}">
+                <img class="ps-thumb" src="{{ p.imagem.url }}" alt="{{ p.legenda|default:'Prova social' }}">
+                <div class="ps-caption">
+                  {{ p.legenda|default:"—" }}
+                </div>
+              </a>
+            </div>
+          {% endfor %}
+        {% else %}
+          {% for i in "1234" %}
+            <div class="col">
+              <a href="#" class="ps-card js-ps-open" data-full="{% static 'agendamentos/img/placeholder.png' %}">
+                <img class="ps-thumb" src="{% static 'agendamentos/img/placeholder.png' %}" alt="Prova social">
+                <div class="ps-caption">
+                  Em breve depoimentos por aqui ✨
+                </div>
+              </a>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      {% if provas and provas|length > 4 %}
+      <div class="text-center mt-3">
+        <a href="{% url 'resultados_alunas' %}" class="btn btn-outline-secondary">Ver mais resultados</a>
+      </div>
+      {% endif %}
+    </div>
+
+    <div id="psOverlay" role="dialog" aria-modal="true" aria-label="Visualização de prova social">
+      <button class="close" id="psClose">✕</button>
+      <button class="navbtn left" id="psPrev">◀</button>
+      <div class="frame"><img id="psFull" alt=""></div>
+      <button class="navbtn right" id="psNext">▶</button>
+    </div>
+
+    <script>
+      // Abre modal e navega entre itens
+      (function(){
+        const items = Array.from(document.querySelectorAll('.js-ps-open'));
+        const overlay = document.getElementById('psOverlay');
+        const full = document.getElementById('psFull');
+        const btnClose = document.getElementById('psClose');
+        const btnPrev = document.getElementById('psPrev');
+        const btnNext = document.getElementById('psNext');
+        let idx = 0;
+
+        function openAt(i){ idx=i; const url = items[idx].dataset.full || items[idx].querySelector('img').src; full.src = url; overlay.classList.add('open'); }
+        function close(){ overlay.classList.remove('open'); full.removeAttribute('src'); }
+        function prev(){ openAt((idx-1+items.length)%items.length); }
+        function next(){ openAt((idx+1)%items.length); }
+
+        items.forEach((a,i)=>a.addEventListener('click',e=>{ e.preventDefault(); openAt(i); }));
+        btnClose.addEventListener('click', close);
+        overlay.addEventListener('click', e=>{ if(e.target===overlay) close(); });
+        btnPrev.addEventListener('click', prev);
+        btnNext.addEventListener('click', next);
+        document.addEventListener('keydown', e=>{
+          if(!overlay.classList.contains('open')) return;
+          if(e.key==='Escape') close();
+          if(e.key==='ArrowLeft') prev();
+          if(e.key==='ArrowRight') next();
+        });
+      })();
+
+      // Brilhos aleatórios nos cartões
+      (function(){
+        const cards = document.querySelectorAll('#psGrid .ps-card');
+        cards.forEach(card=>{
+          for(let i=0;i<7;i++){
+            const s=document.createElement('span');
+            s.className='sparkle';
+            s.style.left = (4 + Math.random()*92) + '%';
+            s.style.top  = (6 + Math.random()*88) + '%';
+            s.style.animationDelay = (Math.random()*3).toFixed(2)+'s';
+            s.style.animationDuration = (2+Math.random()*3).toFixed(2)+'s';
+            card.appendChild(s);
+          }
+        });
+      })();
+    </script>
+  </section>
 </div>
 
 <!-- Botões Flutuantes -->

@@ -1,0 +1,56 @@
+{% extends "agendamentos/base.html" %}
+{% load static %}
+
+{% block title %}{{ titulo }} • Prova Social{% endblock %}
+
+{% block content %}
+<h3 class="mb-3">{{ titulo }}</h3>
+
+<form method="post" enctype="multipart/form-data" class="card p-3">
+  {% csrf_token %}
+  <div class="row g-3">
+    <div class="col-12">
+      <label class="form-label">Legenda (opcional)</label>
+      <textarea name="legenda" rows="2" class="form-control">{{ obj.legenda|default_if_none:'' }}</textarea>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label">Imagem (print do feedback)</label>
+      <!-- nome CORRETO: imagem -->
+      <input
+        type="file"
+        name="imagem"
+        accept="image/*"
+        class="form-control"
+        {% if not obj or not obj.imagem %}required{% endif %}
+      >
+      <div class="form-text">JPG/PNG. Recomenda-se vertical (ex.: 900×1200).</div>
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label">Ordem</label>
+      <input type="number" name="ordem" value="{{ obj.ordem|default:0 }}" class="form-control" min="0" step="1">
+      <div class="form-text">Usado na ordenação crescente.</div>
+    </div>
+
+    <div class="col-md-3 d-flex align-items-end">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="ativo" name="ativo" {% if not obj or obj.ativo %}checked{% endif %}>
+        <label class="form-check-label" for="ativo">Ativo (aparece no site)</label>
+      </div>
+    </div>
+
+    {% if obj and obj.imagem %}
+      <div class="col-12">
+        <label class="form-label">Pré-visualização atual</label><br>
+        <img src="{{ obj.imagem.url }}" style="max-height:220px;border-radius:8px;" alt="Imagem atual">
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="mt-3 d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Salvar</button>
+    <a href="{% url 'agendamentos:gerir_provas' %}" class="btn btn-outline-secondary">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

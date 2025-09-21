@@ -1,0 +1,52 @@
+{% extends "agendamentos/base.html" %}
+{% load static %}
+
+{% block title %}Gerir Resultados{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Resultados das Alunas</h1>
+  <a href="{% url 'agendamentos:criar_resultado' %}" class="btn btn-primary">Novo Resultado</a>
+</div>
+
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead>
+      <tr>
+        <th>Foto</th>
+        <th>Aluna</th>
+        <th>Técnica</th>
+        <th>Ativo</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in resultados %}
+      <tr>
+        <td style="width:120px">
+          {% if r.foto %}<img src="{{ r.foto.url }}" alt="" class="img-fluid rounded" style="height:70px;object-fit:cover">{% endif %}
+        </td>
+        <td>{{ r.nome_aluna }}</td>
+        <td>{{ r.tecnica }}</td>
+        <td>
+          {% if r.ativo %}
+            <span class="badge bg-success">Ativo</span>
+          {% else %}
+            <span class="badge bg-secondary">Oculto</span>
+          {% endif %}
+        </td>
+        <td class="text-end">
+          <a href="{% url 'agendamentos:editar_resultado' r.id %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+          <form method="post" action="{% url 'agendamentos:excluir_resultado' r.id %}" class="d-inline">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Excluir este resultado?')">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-muted">Nenhum resultado cadastrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

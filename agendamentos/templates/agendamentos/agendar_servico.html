@@ -1,68 +1,176 @@
 {% extends "agendamentos/base.html" %}
+{% load static %}
+
+{% block title %}Agendar: {{ servico.nome }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .slot-btn{margin:4px; padding:.5rem .8rem; border-radius:999px; border:1px solid #a67c00; background:#fff; color:#a67c00; cursor:pointer}
+  .slot-btn.active{background:#a67c00; color:#fff}
+  .section-card{border:1px solid #ecd7b3; border-radius:12px}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-7">
-      <div class="card shadow-sm" style="border-radius: 14px;">
-        <div class="card-body p-4">
-          <h3 class="mb-3" style="color:#5d4a7b;">Agendar — {{ servico.nome }}</h3>
+<h1 class="mb-3">Novo agendamento — <span class="text-muted">{{ servico.nome }}</span></h1>
 
-          {% if error_message %}
-            <div class="alert alert-danger">{{ error_message }}</div>
-          {% endif %}
+<form method="post" id="agendar-form" class="card p-3 shadow-sm">
+  {% csrf_token %}
 
-          <form method="post">
-            {% csrf_token %}
-            <div class="mb-3">
-              <label class="form-label">Data</label>
-              <input type="date" id="dia" name="dia" class="form-control" value="{{ dia|date:'Y-m-d' }}">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label">Data</label>
+      <input type="date" id="data-dia" class="form-control" required value="{{ data_pref|default:'' }}">
+    </div>
+    <div class="col-md-8">
+      <label class="form-label d-flex align-items-center justify-content-between">
+        <span>Horários disponíveis</span>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-recarregar">Recarregar</button>
+      </label>
+      <div id="slots" class="d-flex flex-wrap"></div>
+      <div class="form-text">Duração do serviço: {{ servico.duracao }} min</div>
+    </div>
+  </div>
+
+  <input type="hidden" name="data_hora_agendamento" id="data_hora_agendamento">
+
+  <hr class="my-4">
+
+  <!-- Cliente -->
+  <div class="row g-3">
+    <div class="col-md-12">
+      <label class="form-label">Cliente</label>
+      <div class="section-card p-3">
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="cliente_modo" id="modo_existente" value="existente" checked>
+          <label class="form-check-label" for="modo_existente">Selecionar existente</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="cliente_modo" id="modo_novo" value="novo">
+          <label class="form-check-label" for="modo_novo">Cadastrar novo</label>
+        </div>
+
+        <div id="bloco_existente" class="mt-3">
+          <select name="cliente_id" id="cliente_id" class="form-select">
+            <option value="">— selecione —</option>
+            {% for c in clientes %}
+              <option value="{{ c.id }}" {% if c.id == cliente_sugerido_id %}selected{% endif %}>
+                {{ c.nome }} — {{ c.email }}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Sugestão automática quando seu e-mail já estiver cadastrado.</div>
+        </div>
+
+        <div id="bloco_novo" class="mt-3" style="display:none">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <input type="text" name="novo_nome" class="form-control" placeholder="Nome completo">
             </div>
-
-            <div class="mb-3">
-              <label class="form-label">Horários disponíveis (1h)</label>
-              <div id="slots" class="d-flex flex-wrap gap-2"></div>
-              <input type="hidden" name="hora" id="hora">
+            <div class="col-md-6">
+              <input type="email" name="novo_email" class="form-control" placeholder="E-mail">
             </div>
-
-            <div class="d-grid gap-2">
-              <button type="submit" class="btn btn-primary btn-lg">Continuar</button>
-              <a href="{% url 'agendamentos:painel' %}" class="btn btn-outline-secondary">Cancelar</a>
+            <div class="col-md-6">
+              <input type="text" name="novo_telefone" class="form-control" placeholder="Telefone">
             </div>
-          </form>
-
-          <hr class="my-4">
-          <div class="small text-muted">
-            Dica: você chegou aqui pelo calendário. Se preferir, é possível agendar direto pelo painel usando o seletor de data/hora e o botão <b>Confirmar</b>.
+            <div class="col-md-6">
+              <input type="text" name="novo_cpf" class="form-control" placeholder="CPF (opcional)">
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
+  <div class="mt-4 d-flex gap-2">
+    <button type="submit" class="btn btn-primary">Confirmar</button>
+    <a href="{% url 'agendamentos:painel' %}" class="btn btn-secondary">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
 <script>
-async function carregarSlots(){
-  const dia = document.getElementById('dia').value;
-  const url = "{% url 'agendamentos:api_horarios_disponiveis' %}?data="+dia;
-  const res = await fetch(url); if(!res.ok) return;
-  const data = await res.json();
-  const box = document.getElementById('slots'); box.innerHTML = '';
-  data.slots.forEach(s=>{
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn btn-sm ' + (s.ocupado ? 'btn-outline-secondary' : 'btn-outline-primary');
-    btn.textContent = s.hora;
-    btn.disabled = s.ocupado;
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('#slots button').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('hora').value = s.hora;
-    });
-    box.appendChild(btn);
+(function(){
+  const servicoId = {{ servico.id }};
+  const inputData = document.getElementById('data-dia');
+  const slotsBox = document.getElementById('slots');
+  const hidden = document.getElementById('data_hora_agendamento');
+  const btnReload = document.getElementById('btn-recarregar');
+
+  function ymd(d){ return d.toISOString().slice(0,10); }
+
+  async function carregarSlots(){
+    slotsBox.innerHTML = 'Carregando...';
+    hidden.value = '';
+    const dataStr = inputData.value;
+    if(!dataStr){ slotsBox.innerHTML = '<span class="text-muted">Selecione uma data.</span>'; return; }
+
+    try{
+      const url = "{% url 'agendamentos:api_horarios_disponiveis' %}?servico_id="+servicoId+"&data="+dataStr;
+      const res = await fetch(url);
+      const data = await res.json();
+      slotsBox.innerHTML = '';
+      const horarios = data.horarios || [];
+
+      if(!horarios.length){
+        slotsBox.innerHTML = '<span class="text-muted">Sem horários livres.</span>';
+        return;
+      }
+
+      horarios.forEach(h=>{
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'slot-btn';
+        b.textContent = h;
+        b.addEventListener('click', ()=>{
+          document.querySelectorAll('.slot-btn').forEach(x=>x.classList.remove('active'));
+          b.classList.add('active');
+          hidden.value = dataStr + ' ' + h; // YYYY-MM-DD HH:MM
+        });
+        slotsBox.appendChild(b);
+      });
+    }catch(e){
+      slotsBox.innerHTML = '<span class="text-danger">Erro ao carregar horários.</span>';
+    }
+  }
+
+  // Pré-preenche hoje se vazio
+  if(!inputData.value){
+    const hoje = new Date();
+    inputData.value = ymd(hoje);
+  }
+  inputData.addEventListener('change', carregarSlots);
+  btnReload.addEventListener('click', carregarSlots);
+  carregarSlots();
+
+  // alterna blocos do cliente
+  const rbExistente = document.getElementById('modo_existente');
+  const rbNovo = document.getElementById('modo_novo');
+  const blocoExistente = document.getElementById('bloco_existente');
+  const blocoNovo = document.getElementById('bloco_novo');
+
+  function toggleCliente(){
+    const novo = rbNovo.checked;
+    blocoExistente.style.display = novo ? 'none' : 'block';
+    blocoNovo.style.display = novo ? 'block' : 'none';
+  }
+  rbExistente.addEventListener('change', toggleCliente);
+  rbNovo.addEventListener('change', toggleCliente);
+  toggleCliente();
+
+  // impede submit sem horário escolhido ou cliente válido
+  document.getElementById('agendar-form').addEventListener('submit', function(ev){
+    if(!hidden.value){
+      ev.preventDefault();
+      alert('Escolha um horário disponível antes de confirmar.');
+      return;
+    }
+    if(rbExistente.checked && !document.getElementById('cliente_id').value){
+      ev.preventDefault();
+      alert('Selecione um cliente existente ou mude para "Cadastrar novo".');
+    }
   });
-}
-document.getElementById('dia').addEventListener('change', carregarSlots);
-document.addEventListener('DOMContentLoaded', carregarSlots);
+})();
 </script>
 {% endblock %}
