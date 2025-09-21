@@ -18,7 +18,7 @@ Sistema web de agendamento desenvolvido em **Python (Django)** e **MySQL**.
 ## Demonstração
 🔗 [Acesse o projeto online](https://bellciliosacademy.com.br)
 
-![screenshot]()
+![screenshot](https://github.com/Robertsan31/rebeca-cilios-novo/blob/main/Captura%20de%20Tela%202025-09-21%20às%2020.21.18.png)
 
 
 ## Como rodar localmente
